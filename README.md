@@ -19,6 +19,16 @@ def deps do
 end
 ```
 
+Import the Extructure module in every module where you use it:
+```elixir
+defmodule Foo do
+  # uses, aliases, and imports
+  import Extructure
+  
+  # ..
+end
+```
+
 ## Docs
 
 The docs can be found at [HexDocs](https://hexdocs.pm/extructure).
