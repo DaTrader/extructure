@@ -17,32 +17,32 @@ defmodule Extructure.MixProject do
       name: "Extructure",
       source_url: @source_url,
       docs: [
-        main: "Extructure", # The main page in the docs
-        extras: [ "README.md"]
+        # The main page in the docs
+        main: "Extructure",
+        extras: ["README.md"]
       ]
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [ :logger]
+      extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      { :dialyxir, "~> 1.2", only: [ :dev, :test], runtime: false},
-      { :ex_doc, "~> 0.29", only: :dev, runtime: false}
+      {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.29", only: :dev, runtime: false},
+      {:credo, "~> 1.6", only: :dev, runtime: false}
     ]
   end
 
   defp package do
     [
-      maintainers: [ "DaTrader"],
-      licenses: [ "MIT"],
-      links: %{ github: @source_url},
+      maintainers: ["DaTrader"],
+      licenses: ["MIT"],
+      links: %{github: @source_url},
       files: ~w(lib test .formatter.exs mix.exs README.md LICENSE.md CHANGELOG.md)
     ]
   end

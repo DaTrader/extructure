@@ -1,4 +1,5 @@
 defmodule Extructure do
+
   @moduledoc """
   Implementation of the `<~` extructure operator.
   """
@@ -6,14 +7,15 @@ defmodule Extructure do
   @typep mode() :: :loose | :rigid
   @typep metadata() :: keyword()
 
-  @typep input() :: input_expr() |
-          { input(), input()} |
-          [ input()] |
-          atom() |
-          number() |
-          binary()
+  @typep input() ::
+           input_expr()
+           | {input(), input()}
+           | [input()]
+           | atom()
+           | number()
+           | binary()
 
-  @typep input_expr() :: { input_expr() | atom(), metadata(), atom() | [ input()]}
+  @typep input_expr() :: {input_expr() | atom(), metadata(), atom() | [input()]}
 
   @dummy :_
 
@@ -59,13 +61,13 @@ defmodule Extructure do
   For nesting, use the keys as you would in plain Elixir matching:
 
   ```elixir
-  %{ a: %{ b}} <~ [ a: %{ b: 2}]
+  %{a: %{b}} <~ [a: %{b: 2}]
   # a variable is not set
   # b variable is set to 2
   ```
   or
   ```elixir
-  %{ a: a = %{ b}} <~ [ a: %{ b: 2}]
+  %{a: a = %{b}} <~ [a: %{b: 2}]
   # both a and b variables are set
   ```
 
@@ -75,11 +77,11 @@ defmodule Extructure do
   without the explicit keys:
 
       ```elixir
-      %{ a, b, c: c, d: _d} <~ %{ a: 1, b: 2, c: 3}
+      %{a, b, c: c, d: _d} <~ %{a: 1, b: 2, c: 3}
       ```
       or
       ```elixir
-      [ a, b, c: c, d: _d] <~ %{ a: 1, b: 2, c: 3}
+      [a, b, c: c, d: _d] <~ %{a: 1, b: 2, c: 3}
       ```
 
   - Any errors in the left-side expression are detected in compile time.
@@ -94,45 +96,42 @@ defmodule Extructure do
     last_name: last_name,
   } = socket.assigns
 
-  age = socket.assigns[ :age]
+  age = socket.assigns[:age]
   ```
 
   simply use:
 
   ```elixir
-  %{ first_name, last_name, _age} <~ socket.assigns
+  %{first_name, last_name, _age} <~ socket.assigns
   ```
   or
   ```elixir
-  { first_name, last_name, _age( 25)} <~ socket.assigns
+  {first_name, last_name, _age(25)} <~ socket.assigns
   ```
   or
   ```elixir
-  [ first_name, last_name, age( 25)] <~ socket.assigns
+  [first_name, last_name, age(25)] <~ socket.assigns
   ```
 
   See the `README.md` and `extructure_test.ex` files for more examples.
   """
   defmacro left <~ right do
-    extract( left, right)
+    extract(left, right)
   end
 
   # Extracts (destructures) data from the right side into the left side expression.
-  @spec extract( input(), input()) :: Macro.output()
-  defp extract( left, right) do
-    opts =
-      [ mode: :loose]
-      |> var_optionality( "Can't use optional variable outside of an Extructure match.")
-
-    case { left, dig( left, opts)} do
-      { _, { term, @dummy}} ->
+  @spec extract(input(), input()) :: Macro.output()
+  defp extract(left, right) do
+    opts = var_optionality([mode: :loose], "Can't use optional variable outside of an Extructure match.")
+    case {left, dig(left, opts)} do
+      {_, {term, @dummy}} ->
         quote do
-          unquote( term) = unquote( right)
+          unquote(term) = unquote(right)
         end
 
-      { _, { term, merger}} ->
+      {_, {term, merger}} ->
         quote do
-          unquote( term) = Extructure.deep_merge( unquote( merger), unquote( right))
+          unquote(term) = Extructure.deep_merge(unquote(merger), unquote(right))
         end
     end
   end
@@ -142,163 +141,169 @@ defmodule Extructure do
   #    whether derived from their names or from the explicitly specified keys,
   # - a merger structure derived from the left side expression to deep-merge the right-side
   #   expression into so that
-  @spec dig( input(), keyword()) :: { input(), { mode(), input()} | input()}
+  @spec dig(input(), keyword()) :: {input(), {mode(), input()} | input()}
 
   # list
-  defp dig( args, opts) when is_list( args) do
+  defp dig(args, opts) when is_list(args) do
     opts =
       opts
-      |> pair_var( true)
+      |> pair_var(true)
       |> var_optionality()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], & &1)
+    args
+    |> Enum.reduce({[], []}, &prepend_acc(&1, &2, opts))
+    |> finalize_acc(opts[:mode], & &1)
   end
 
   # map
-  defp dig( { :%{}, context, args}, opts) do
+  defp dig({:%{}, context, args}, opts) do
     opts =
       opts
-      |> pair_var( true)
+      |> pair_var(true)
       |> var_optionality()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], &{ :%{}, context, &1})
+    args
+    |> Enum.reduce({[], []}, &prepend_acc(&1, &2, opts))
+    |> finalize_acc(opts[:mode], &{:%{}, context, &1})
   end
 
   # tuple other than a tuple of 2
-  defp dig( { :{}, context, args}, opts) do
+  defp dig({:{}, context, args}, opts) do
     opts =
       opts
-      |> pair_var( opts[ :mode] == :loose)
+      |> pair_var(opts[:mode] == :loose)
       |> var_optionality()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], &{ :{}, context, &1})
+    args
+    |> Enum.reduce({[], []}, &prepend_acc(&1, &2, opts))
+    |> finalize_acc(opts[:mode], &{:{}, context, &1})
   end
 
   # tuple of 2 special case, but not key/value pair
-  defp dig( { first, second}, opts) when not is_atom( first) do
+  defp dig({first, second}, opts) when not is_atom(first) do
     opts =
       opts
-      |> pair_var( opts[ :mode] == :loose)
+      |> pair_var(opts[:mode] == :loose)
       |> var_optionality()
 
-    Enum.reduce( [ first, second], { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], fn
-      [ first, second] ->
-        { first, second}
+    [first, second]
+    |> Enum.reduce({[], []}, &prepend_acc(&1, &2, opts))
+    |> finalize_acc(opts[:mode], fn
+      [first, second] ->
+        {first, second}
 
       list ->
-        { :{}, [], List.to_tuple( list)}
+        {:{}, [], List.to_tuple(list)}
     end)
   end
 
   # matching
-  defp dig( { :=, context, args}, opts) do
+  defp dig({:=, context, args}, opts) do
     opts =
       opts
-      |> pair_var( false)
-      |> var_optionality( "Can't use optional variable in an Elixir match")
+      |> pair_var(false)
+      |> var_optionality("Can't use optional variable in an Elixir match")
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
+    args
+    |> Enum.reduce({[], []}, &prepend_acc(&1, &2, opts))
     |> finalize_acc(
-         nil,
-         fn args ->
-           { :=, context, args}
-         end,
-         fn
-           [ @dummy, right] ->
-             right
+      nil,
+      fn args ->
+        {:=, context, args}
+      end,
+      fn
+        [@dummy, right] ->
+          right
 
-           [ left, @dummy] ->
-             left
+        [left, @dummy] ->
+          left
 
-           [ _left, _right] = args ->
-             { :=, context, args}
-         end
-       )
+        [_left, _right] = args ->
+          {:=, context, args}
+      end
+    )
   end
 
   # toggles structural matching on and off
-  defp dig( { :^, _context, args}, opts) do
+  defp dig({:^, _context, args}, opts) do
     opts =
       opts
-      |> pair_var( true)
+      |> pair_var(true)
       |> toggle_match_mode()
 
-    [ arg] = args
-    dig( arg, opts)
+    [arg] = args
+    dig(arg, opts)
   end
 
   # standalone variable (without a key)
-  defp dig( { var_key, _, _} = variable, opts) when is_atom( var_key) do
+  defp dig({var_key, _, _} = variable, opts) when is_atom(var_key) do
     cond do
-      opts[ :pair_var] ->
-        interpret_var( {}, variable, opts)
+      opts[:pair_var] ->
+        interpret_var({}, variable, opts)
 
-      optional_variable?( variable) ->
-        raise_on_no_optional( variable, opts)
-        { trim_underscore( variable), @dummy}
+      optional_variable?(variable) ->
+        raise_on_no_optional(variable, opts)
+        {trim_underscore(variable), @dummy}
 
       true ->
-        { trim_underscore( variable), @dummy}
+        {trim_underscore(variable), @dummy}
     end
   end
 
   # other key/term pair
-  defp dig( { key, term}, opts) when is_atom( key) do
-    opts = pair_var( opts, true)
+  defp dig({key, term}, opts) when is_atom(key) do
+    opts = pair_var(opts, true)
 
-    case { term, dig( term, opts)} do
-      { { :^, _, _}, { term, @dummy}} ->
-        { { key, term}, { key, @dummy}}
+    case {term, dig(term, opts)} do
+      {{:^, _, _}, {term, @dummy}} ->
+        {{key, term}, {key, @dummy}}
 
-      { { :^, _, _}, { term, merger}} ->
-        { { key, term}, { key, merger}}
+      {{:^, _, _}, {term, merger}} ->
+        {{key, term}, {key, merger}}
 
-      { { _, _, _}, { { _, _}, _}} ->
-        interpret_var( { key}, term, opts)
+      {{_, _, _}, {{_, _}, _}} ->
+        interpret_var({key}, term, opts)
 
-      { _, { term, @dummy}} ->
-        { { key, term}, { key, @dummy}}
+      {_, {term, @dummy}} ->
+        {{key, term}, {key, @dummy}}
 
-      { _, { term, merger}} ->
-        { { key, term}, { key, merger}}
+      {_, {term, merger}} ->
+        {{key, term}, {key, merger}}
     end
   end
 
   # everything else
-  defp dig( other, _opts) do
-    { other, @dummy}
+  defp dig(other, _opts) do
+    {other, @dummy}
   end
 
   # Instructs interpreting sole variables as key pairs or leaving them as they are.
-  @spec pair_var( keyword(), boolean()) :: keyword()
-  defp pair_var( opts, true) do
-    Keyword.put( opts, :pair_var, true)
+  @spec pair_var(keyword(), boolean()) :: keyword()
+  defp pair_var(opts, true) do
+    Keyword.put(opts, :pair_var, true)
   end
 
-  defp pair_var( opts, false) do
-    Keyword.delete( opts, :pair_var)
+  defp pair_var(opts, false) do
+    Keyword.delete(opts, :pair_var)
   end
 
   # Specifies why a variable cannot be declared optional
-  @spec var_optionality( keyword(), String.t() | nil) :: keyword()
-  defp var_optionality( opts, reason \\ nil)
-  defp var_optionality( opts, nil) do
-    Keyword.delete( opts, :var_optionality)
+  @spec var_optionality(keyword(), String.t() | nil) :: keyword()
+  defp var_optionality(opts, reason \\ nil)
+
+  defp var_optionality(opts, nil) do
+    Keyword.delete(opts, :var_optionality)
   end
 
-  defp var_optionality( opts, reason) do
-    Keyword.put( opts, :var_optionality, reason)
+  defp var_optionality(opts, reason) do
+    Keyword.put(opts, :var_optionality, reason)
   end
 
   # Toggles structural matching mode from rigid to loose and vice versa.
   # Raises KeyError if :mode not found in options.
-  @spec toggle_match_mode( keyword()) :: keyword()
-  defp toggle_match_mode( opts) do
-    update_in( opts[ :mode], fn
+  @spec toggle_match_mode(keyword()) :: keyword()
+  defp toggle_match_mode(opts) do
+    update_in(opts[:mode], fn
       :rigid ->
         :loose
 
@@ -314,68 +319,68 @@ defmodule Extructure do
   # the variable name as a key.
   # Since nil is a valid key, we use a key holding tuple that can have
   # 0 or 1 elements.
-  @spec interpret_var( {} | { atom()}, tuple(), keyword()) ::
-          { { atom(), tuple()}, { atom(), :_}} |
-          { { atom(), tuple()}, { atom(), any()}}
-  defp interpret_var( key_holder, variable, opts) do
-    case { key_holder, variable_with_value( variable, opts)} do
-      { {}, { { var_key, _, _} = variable, default_value}} ->
-        kv_with_optional_merger( var_key, variable, default_value)
+  @spec interpret_var({} | {atom()}, tuple(), keyword()) ::
+          {{atom(), tuple()}, {atom(), :_}}
+          | {{atom(), tuple()}, {atom(), any()}}
+  defp interpret_var(key_holder, variable, opts) do
+    case {key_holder, variable_with_value(variable, opts)} do
+      {{}, {{var_key, _, _} = variable, default_value}} ->
+        kv_with_optional_merger(var_key, variable, default_value)
 
-      { { key}, { variable, default_value}} ->
-        kv_with_optional_merger( key, variable, default_value)
+      {{key}, {variable, default_value}} ->
+        kv_with_optional_merger(key, variable, default_value)
     end
   end
 
-  defp kv_with_optional_merger( key, variable, default_value) do
-    { { key, variable}, { key, default_value}}
+  defp kv_with_optional_merger(key, variable, default_value) do
+    {{key, variable}, {key, default_value}}
   end
 
   # Returns a variable with its default value.
   # The `_` prefix in an optional variable name is trimmed.
-  @spec variable_with_value( { atom(), list(), nil | list()}, keyword()) :: { input_expr(), input() | :_}
-  defp variable_with_value( { _, _, [ _ | [ _ | _]]} = term, _) do
-    raise "Term `#{ Macro.to_string( term)}` is not a variable."
+  @spec variable_with_value({atom(), list(), nil | list()}, keyword()) ::
+          {input_expr(), input() | :_}
+  defp variable_with_value({_, _, [_ | [_ | _]]} = term, _) do
+    raise "Term `#{Code.format_string! Macro.to_string term}` is not a variable."
   end
 
-  defp variable_with_value( { _, _, _} = variable, opts) do
-    { var_key, context, default_value_holder} = variable
-    new_variable = { var_key, context, nil}
+  defp variable_with_value({_, _, _} = variable, opts) do
+    {var_key, context, default_value_holder} = variable
+    new_variable = {var_key, context, nil}
 
-    if optional_variable?( variable) do
-      raise_on_no_optional( new_variable, opts)
-      { trim_underscore( new_variable), default_value( default_value_holder)}
+    if optional_variable?(variable) do
+      raise_on_no_optional(new_variable, opts)
+      {trim_underscore(new_variable), default_value(default_value_holder)}
     else
-      { new_variable, @dummy}
+      {new_variable, @dummy}
     end
   end
 
-  defp default_value( default_value_holder) do
-    default_value_holder && List.first( default_value_holder)
-  end
+  defp default_value([value | _]), do: value
+  defp default_value(nil_or_empty) when nil_or_empty in [nil, []], do: nil
 
   # Verifies if a variable is an optional one
-  @spec optional_variable?( input_expr()) :: boolean()
-  defp optional_variable?( { var_key, _, args}) when is_atom( var_key) do
-    is_list( args) or String.starts_with?( Atom.to_string( var_key), "_")
+  @spec optional_variable?(input_expr()) :: boolean()
+  defp optional_variable?({var_key, _, args}) when is_atom(var_key) do
+    is_list(args) or String.starts_with?(Atom.to_string(var_key), "_")
   end
 
   # Raises if a reason was provided why a var cannot be optional.
-  @spec raise_on_no_optional( input_expr(), keyword()) :: :ok | no_return()
-  defp raise_on_no_optional( variable, opts) do
-    if reason = opts[ :var_optionality] do
-      raise ArgumentError, "#{ inspect( reason)}: #{ Macro.to_string( variable)}."
+  @spec raise_on_no_optional(input_expr(), keyword()) :: :ok | no_return()
+  defp raise_on_no_optional(variable, opts) do
+    if reason = opts[:var_optionality] do
+      raise ArgumentError, "#{inspect(reason)}: #{Macro.to_string(variable)}."
     else
       :ok
     end
   end
 
   # Trims a prefixed underscore if any in a variable name.
-  @spec trim_underscore( input_expr()) :: input_expr()
-  defp trim_underscore( { var_key, context, args} = variable) when is_atom( var_key) do
-    case Atom.to_string( var_key) do
+  @spec trim_underscore(input_expr()) :: input_expr()
+  defp trim_underscore({var_key, context, args} = variable) do
+    case Atom.to_string(var_key) do
       "_" <> var_str ->
-        { String.to_atom( var_str), context, args}
+        {String.to_atom(var_str), context, args}
 
       _ ->
         variable
@@ -383,25 +388,25 @@ defmodule Extructure do
   end
 
   # prepends a dug macro arg to args and mergers in the acc
-  @spec prepend_acc( input(), acc, keyword()) :: acc
-        when acc: { [ input()], [ input()]}
-  defp prepend_acc( left, acc, opts) do
-    { args, mergers} = acc
-    { arg, merger} = dig( left, opts)
-    { [ arg | args], [ merger | mergers]}
+  @spec prepend_acc(input(), acc, keyword()) :: acc
+        when acc: {[input()], [input()]}
+  defp prepend_acc(left, acc, opts) do
+    {args, mergers} = acc
+    {arg, merger} = dig(left, opts)
+    {[arg | args], [merger | mergers]}
   end
 
   # reverses args and, unless @dummy, optionals too
-  @spec finalize_acc( { list(), list()}, mode() | nil, creator, creator | nil) ::
-          { input(), input() | { mode(), input()}}
-        when creator: ( list() -> input())
-  defp finalize_acc( acc, mode, creates_left, creates_merger \\ nil) do
+  @spec finalize_acc({list(), list()}, mode() | nil, creator, creator | nil) ::
+          {input(), input() | {mode(), input()}}
+        when creator: (list() -> input())
+  defp finalize_acc(acc, mode, creates_left, creates_merger \\ nil) do
     creates_merger = creates_merger || creates_left
-    { left_args, merger_args} = acc
-    left = creates_left.( Enum.reverse( left_args))
-    merger = creates_merger.( Enum.reverse( merger_args))
+    {left_args, merger_args} = acc
+    left = creates_left.(Enum.reverse(left_args))
+    merger = creates_merger.(Enum.reverse(merger_args))
 
-    { left, mode && { mode, merger} || merger}
+    {left, (mode && {mode, merger}) || merger}
   end
 
   # Deep-merges a map, Keyword or a tuple on the right into a map, Keyword or tuple on the left.
@@ -409,81 +414,82 @@ defmodule Extructure do
   # while if it is rigid, it is merged according to the Elixir matching rules.
   # Note: when merging without a mode on the left, it means, its a default value.
   @doc false
-  @spec deep_merge( { mode(), type_left} | type_left, type_right) :: type_left | no_return()
+  @spec deep_merge({mode(), type_left} | type_left, type_right) :: type_left | no_return()
         when type_left: type,
              type_right: type,
              type: map() | keyword() | tuple()
-  def deep_merge( { :loose, %{} = left}, right) do
-    Map.merge( left, to_map( right), &deep_resolve/3)
-    |> Map.reject( &dummy?( &1))
+  def deep_merge({:loose, %{} = left}, right) do
+    left
+    |> Map.merge(to_map(right), &deep_resolve/3)
+    |> Map.reject(&dummy?(&1))
   end
 
-  def deep_merge( { :rigid, %{} = left}, right) do
-    Map.merge( left, right, &deep_resolve/3)
-    |> Map.reject( &dummy?( &1))
+  def deep_merge({:rigid, %{} = left}, right) do
+    left
+    |> Map.merge(right, &deep_resolve/3)
+    |> Map.reject(&dummy?(&1))
   end
 
-  def deep_merge( { :loose, left}, right) when is_list( left) do
-    left_keys = Keyword.keys( left)
+  def deep_merge({:loose, left}, right) when is_list(left) do
+    left_keys = Keyword.keys(left)
 
     merged =
-      Keyword.merge( left, to_list( right), &deep_resolve/3)
-      |> Keyword.reject( &dummy?( &1))
-      |> Keyword.reject( fn { k, _} -> k not in left_keys end)
+      left
+      |> Keyword.merge(to_list(right), &deep_resolve/3)
+      |> Keyword.reject(&dummy?(&1))
+      |> Keyword.reject(fn {k, _} -> k not in left_keys end)
 
-    Enum.map( left_keys, &{ &1, merged[ &1]})
+    Enum.map(left_keys, &{&1, merged[&1]})
   end
 
-  def deep_merge( { :rigid, left}, right) when is_list( left) do
-    Keyword.merge( left, right, &deep_resolve/3)
-    |> Keyword.reject( &dummy?( &1))
+  def deep_merge({:rigid, left}, right) when is_list(left) do
+    left
+    |> Keyword.merge(right, &deep_resolve/3)
+    |> Keyword.reject(&dummy?(&1))
   end
 
-  def deep_merge( { :loose, left}, right) when is_tuple( left) do
-    deep_merge( { :loose, Tuple.to_list( left)}, right)
+  def deep_merge({:loose, left}, right) when is_tuple(left) do
+    {:loose, Tuple.to_list(left)}
+    |> deep_merge(right)
     |> List.to_tuple()
   end
 
-  def deep_merge( { :rigid, left}, right)
-      when is_tuple( left) and
-           is_tuple( right) and
-           tuple_size( left) == tuple_size( right)
-    do
-    List.zip( [ Tuple.to_list( left), Tuple.to_list( right)])
-    |> Enum.map( fn { left, right} ->
-      deep_resolve( nil, left, right)
-    end)
+  def deep_merge({:rigid, left}, right) when tuple_size(left) == tuple_size(right) do
+    left
+    |> Tuple.to_list()
+    |> Enum.zip(Tuple.to_list(right))
+    |> Enum.map(fn {left, right} -> deep_resolve(nil, left, right) end)
     |> List.to_tuple()
   end
 
-  def deep_merge( { :rigid, left}, right) when is_tuple( left) do
+  def deep_merge({:rigid, left}, right) when is_tuple(left) do
     raise MatchError, term: right
   end
 
   # Merging with a default value
-  def deep_merge( left, nil), do: left
-  def deep_merge( _left, right), do: right
+  def deep_merge(left, nil), do: left
+  def deep_merge(_left, right), do: right
 
   # Merge recursively if the key exists in both structures.
-  defp deep_resolve( _key, left, right)
-       when ( is_map( left) or is_list( left) or is_tuple( left)) and
-            ( is_map( right) or is_list( right) or is_tuple( right))
-    do
-    deep_merge( left, right)
+  defp deep_resolve(_key, left, right)
+       when (is_map(left) or is_list(left) or is_tuple(left)) and
+              (is_map(right) or is_list(right) or is_tuple(right)) do
+    deep_merge(left, right)
   end
-  defp deep_resolve( _key, _left, right), do: right
+
+  defp deep_resolve(_key, _left, right), do: right
 
   # Skip element marked as dummy.
-  defp dummy?( { _, @dummy}), do: true
-  defp dummy?( { _, _}), do: false
+  defp dummy?({_, @dummy}), do: true
+  defp dummy?({_, _}), do: false
 
   # Transform keyword list or tuple into map
-  defp to_map( %{} = map), do: map
-  defp to_map( kw) when is_list( kw), do: Map.new( kw)
-  defp to_map( tuple) when is_tuple( tuple), do: to_list( tuple) |> Map.new()
+  defp to_map(map) when is_map(map), do: map
+  defp to_map(kw) when is_list(kw), do: Map.new(kw)
+  defp to_map(tuple) when is_tuple(tuple), do: Map.new Tuple.to_list tuple
 
   # Transform map or tuple into keyword list.
-  defp to_list( kw) when is_list( kw), do: kw
-  defp to_list( %{} = map), do: Keyword.new( map)
-  defp to_list( tuple), do: Tuple.to_list( tuple)
+  defp to_list(kw) when is_list(kw), do: kw
+  defp to_list(map) when is_map(map), do: Keyword.new(map)
+  defp to_list(tuple), do: Tuple.to_list(tuple)
 end
