@@ -87,10 +87,10 @@ or
 
 ```elixir
 [b, a] <~ [a: 1, b: 2, c: 3]
-# => [ b: 2, a: 1]
+# => [b: 2, a: 1]
 
 {b, a} <~ {{:a, 1}, {:b, 2}, {:c, 3}}
-# => { { :b, 2}, { :a, 1}}
+# => {{:b, 2}, {:a, 1}}
 ```
 
 #### Enforcing "rigid" (Elixir default) matching of the structures
