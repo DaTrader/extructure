@@ -127,3 +127,58 @@ assert c == 3
 assert d == 4
 assert e == 5
 ```
+
+## Limitations
+
+#### Optional variables and default values
+
+The original idea was to use the standard `\\` operator to denote optional and default values in lists, tuples, and 
+maps, but, as shown below, the Elixir parser does not support this expression in maps.
+
+```elixir
+[ a, b \\ nil] # ok
+{ a, b \\ nil} # ok
+%{ a, b \\ nil} # syntax error
+```
+
+So, decision was made that, until there's a progress with the Elixir parser, the underscore prefixed variable names will
+be used for optional variables defaulting to nil, and function (macro) call syntax will be used for the optional
+variables defaulting to nil or any other value, e.g.:
+
+```elixir
+%{ _a} # optional variable, defaults to nil
+%{ a()} # ditto
+%{ a( 25)} # optional variable, defaults to 25 
+%{ _a( 25)} # ditto
+```
+
+The above syntax is used uniformly with all three types (maps, lists, tuples).           
+
+The limitation that comes with this approach is that there can't be macro calls placed within the left-side expression.
+
+Should the Elixir core team decide to remove the parser restriction, a support for the standard Elixir optional
+variables (arguments) would be added and the present notation would be slowly phased out (leaving it to the
+compatibility mode).  
+
+## Formatting
+
+The source code formatting in this library diverges from the standard formatting practice based on using `mix format`
+in so much that there's a leading space character inserted before each initial argument / element with an intention to
+improve the code readability (subject to the author's personal perception).
+
+Another detail diverging from the standard Elixir formatting is that, where present, multi-line function signatures
+and `with` statements will not have the `do` at the end of the last of the lines but, instead, indented in the new
+line, e.g.:
+
+```elixir
+with { _, foo} <- get_foo( a, b, c),
+     { _, bar} <- foo_to_bar( foo)
+  do
+  # logic
+else
+  _ ->
+    x    
+end
+```
+
+The preferred width is 120 characters for the code and 80 characters for the docs.
