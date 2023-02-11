@@ -124,7 +124,7 @@ defmodule Extructure do
   defp extract( left, right) do
     opts =
       [ mode: :loose]
-      |> var_optionality( "Can't use optional variable outside of an Extructure match.")
+      |> one_off( var_optionality: "Can't use optional variable outside of an Extructure match.")
 
     case { left, dig( left, opts)} do
       { _, { term, @dummy}} ->
@@ -151,7 +151,7 @@ defmodule Extructure do
     opts =
       opts
       |> pair_var( true)
-      |> var_optionality()
+      |> one_off()
 
     Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc( opts[ :mode], & &1)
@@ -162,7 +162,7 @@ defmodule Extructure do
     opts =
       opts
       |> pair_var( true)
-      |> var_optionality()
+      |> one_off()
 
     Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc( opts[ :mode], &{ :%{}, context, &1})
@@ -173,7 +173,7 @@ defmodule Extructure do
     opts =
       opts
       |> pair_var( opts[ :mode] == :loose)
-      |> var_optionality()
+      |> one_off()
 
     Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc( opts[ :mode], &{ :{}, context, &1})
@@ -184,7 +184,7 @@ defmodule Extructure do
     opts =
       opts
       |> pair_var( opts[ :mode] == :loose)
-      |> var_optionality()
+      |> one_off()
 
     Enum.reduce( [ first, second], { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc( opts[ :mode], fn
@@ -201,25 +201,37 @@ defmodule Extructure do
     opts =
       opts
       |> pair_var( false)
-      |> var_optionality( "Can't use optional variable in an Elixir match")
+      |> one_off( var_optionality: "Can't use optional variable in an Elixir match")
 
     Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc(
-       nil,
-       fn args ->
-         { :=, context, args}
-       end,
-       fn
-         [ @dummy, right] ->
-           right
+      nil,
+      fn args ->
+        { :=, context, args}
+      end,
+      fn
+        [ @dummy, right] ->
+          right
 
-         [ left, @dummy] ->
-           left
+        [ left, @dummy] ->
+          left
 
-         [ _left, _right] = args ->
-           { :=, context, args}
-       end
+        [ _left, _right] = args ->
+          { :=, context, args}
+      end
      )
+  end
+
+  # list head | tail matching
+  defp dig( { :|, context, args}, opts) do
+    opts = one_off( opts)
+
+    [ head, tail] = args
+    { head_args, head_merger} = dig( head, opts)
+    { tail_args, tail_merger} = dig( tail, pair_var( opts, false))
+    args = [ head_args, tail_args]
+    merger = [ head_merger, tail_merger]
+    { { :|, context, args}, { :|, context, merger}}
   end
 
   # toggles structural matching on and off
@@ -285,15 +297,15 @@ defmodule Extructure do
     Keyword.delete( opts, :pair_var)
   end
 
-  # Specifies why a variable cannot be declared optional
-  @spec var_optionality( keyword(), String.t() | nil) :: keyword()
-  defp var_optionality( opts, reason \\ nil)
-  defp var_optionality( opts, nil) do
-    Keyword.delete( opts, :var_optionality)
+  # Sets one off options valid for just the next nested AST level.
+  @spec one_off( keyword(), keyword() | nil) :: keyword()
+  defp one_off( opts, one_off \\ nil)
+  defp one_off( opts, one_off) when one_off in [ nil, []] do
+    Keyword.delete( opts, :one_off)
   end
 
-  defp var_optionality( opts, reason) do
-    Keyword.put( opts, :var_optionality, reason)
+  defp one_off( opts, one_off) do
+    Keyword.put( opts, :one_off, one_off)
   end
 
   # Toggles structural matching mode from rigid to loose and vice versa.
@@ -365,7 +377,7 @@ defmodule Extructure do
   # Raises if a reason was provided why a var cannot be optional.
   @spec raise_on_no_optional( input_expr(), keyword()) :: :ok | no_return()
   defp raise_on_no_optional( variable, opts) do
-    if reason = opts[ :var_optionality] do
+    if reason = opts[ :one_off][ :var_optionality] do
       raise ArgumentError, "#{ inspect( reason)}: #{ Macro.to_string( variable)}."
     else
       :ok
@@ -415,16 +427,34 @@ defmodule Extructure do
         when type_left: type,
              type_right: type,
              type: map() | keyword() | tuple()
+
+  # loose map
   def deep_merge( { :loose, %{} = left}, right) do
     Map.merge( left, to_map( right), &deep_resolve/3)
     |> Map.reject( &dummy?( &1))
   end
 
+  # rigid map
   def deep_merge( { :rigid, %{} = left}, right) do
     Map.merge( left, right, &deep_resolve/3)
     |> Map.reject( &dummy?( &1))
   end
 
+  # improper loose list with any tail
+  def deep_merge( { :loose, [ head | @dummy]}, right) do
+    [ head] = deep_merge( { :loose, [ head]}, right)
+    tail = delete_pair( right, head)
+    [ head | to_list( tail)]
+  end
+
+  # improper loose list with tail to extructure
+  def deep_merge( { :loose, [ head | { mode, _} = tail]}, right) when mode in [ :loose, :rigid] do
+    [ head] = deep_merge( { :loose, [ head]}, right)
+    tail = deep_merge( tail, delete_pair( right, head))
+    [ head | tail]
+  end
+
+  # loose list
   def deep_merge( { :loose, left}, right) when is_list( left) do
     left_keys = Keyword.keys( left)
 
@@ -436,16 +466,19 @@ defmodule Extructure do
     Enum.map( left_keys, &{ &1, merged[ &1]})
   end
 
+  # rigid list
   def deep_merge( { :rigid, left}, right) when is_list( left) do
     Keyword.merge( left, right, &deep_resolve/3)
     |> Keyword.reject( &dummy?( &1))
   end
 
+  # loose tuple
   def deep_merge( { :loose, left}, right) when is_tuple( left) do
     deep_merge( { :loose, Tuple.to_list( left)}, right)
     |> List.to_tuple()
   end
 
+  # rigid tuple with another same-sized rigid tuple
   def deep_merge( { :rigid, left}, right)
       when is_tuple( left) and
            is_tuple( right) and
@@ -458,6 +491,7 @@ defmodule Extructure do
     |> List.to_tuple()
   end
 
+  # rigid tuple with any other structure
   def deep_merge( { :rigid, left}, right) when is_tuple( left) do
     raise MatchError, term: right
   end
@@ -487,5 +521,15 @@ defmodule Extructure do
   # Transform map or tuple into keyword list.
   defp to_list( kw) when is_list( kw), do: kw
   defp to_list( %{} = map), do: Keyword.new( map)
-  defp to_list( tuple), do: Tuple.to_list( tuple)
+  defp to_list( tuple) when is_tuple( tuple), do: Tuple.to_list( tuple)
+
+  # Delete key pair from a structure
+  defp delete_pair( kw, pair) when is_list( kw), do: List.delete( kw, pair)
+  defp delete_pair( %{} = map, pair), do: Map.delete( map, elem( pair, 0))
+  defp delete_pair( tuple, pair) when is_tuple( tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> delete_pair(pair)
+    |> List.to_tuple()
+  end
 end

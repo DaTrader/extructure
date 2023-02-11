@@ -296,4 +296,47 @@ defmodule ExtructureTest do
       assert b == 2
     end
   end
+
+  test "keyword list head and tail in loose mode" do
+    [ a | rest] <~ [ a: 1, b: 2, c: 3]
+    assert a == 1
+    assert rest == [ b: 2, c: 3]
+  end
+
+  test "keyword list head and tail arbitrary var loose mode" do
+    [ b | rest] <~ [ a: 1, b: 2, c: 3]
+    assert b == 2
+    assert rest == [ a: 1, c: 3]
+  end
+
+  test "keyword list head and tail from map" do
+    [ b | rest] <~ %{ a: 1, b: 2, c: 3}
+    assert b == 2
+    assert rest[ :a] == 1
+    assert rest[ :c] == 3
+  end
+
+  test "keyword list head and tail from key-pair tuple" do
+    [ b | [ a, c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
+    assert b == 2
+    assert a == 1
+    assert c == 3
+  end
+
+  test "keyword list head and structured tail" do
+    [ b | [ a, c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
+    assert b == 2
+    assert a == 1
+    assert c == 3
+  end
+
+  test "keyword list head and structured tail with inside head and tail" do
+    [ b | [ a | c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
+    assert b == 2
+    assert a == 1
+    assert c == [ c: 3]
+  end
+
+  test "list head and tail rigid mode" do
+  end
 end
