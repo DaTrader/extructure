@@ -6,14 +6,16 @@ defmodule Extructure do
   @typep mode() :: :loose | :rigid
   @typep metadata() :: keyword()
 
-  @typep input() :: input_expr() |
-          { input(), input()} |
-          [ input()] |
-          atom() |
-          number() |
-          binary()
+  @typep input() ::
+           input_expr()
+           | { input(), input()}
+           | [ input()]
+           | atom()
+           | number()
+           | binary()
 
   @typep input_expr() :: { input_expr() | atom(), metadata(), atom() | [ input()]}
+  @typep dummy() :: :_
 
   @dummy :_
 
@@ -203,21 +205,21 @@ defmodule Extructure do
 
     Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
     |> finalize_acc(
-         nil,
-         fn args ->
+       nil,
+       fn args ->
+         { :=, context, args}
+       end,
+       fn
+         [ @dummy, right] ->
+           right
+
+         [ left, @dummy] ->
+           left
+
+         [ _left, _right] = args ->
            { :=, context, args}
-         end,
-         fn
-           [ @dummy, right] ->
-             right
-
-           [ left, @dummy] ->
-             left
-
-           [ _left, _right] = args ->
-             { :=, context, args}
-         end
-       )
+       end
+     )
   end
 
   # toggles structural matching on and off
@@ -315,7 +317,7 @@ defmodule Extructure do
   # Since nil is a valid key, we use a key holding tuple that can have
   # 0 or 1 elements.
   @spec interpret_var( {} | { atom()}, tuple(), keyword()) ::
-          { { atom(), tuple()}, { atom(), :_}} |
+          { { atom(), tuple()}, { atom(), dummy()}} |
           { { atom(), tuple()}, { atom(), any()}}
   defp interpret_var( key_holder, variable, opts) do
     case { key_holder, variable_with_value( variable, opts)} do
@@ -333,7 +335,7 @@ defmodule Extructure do
 
   # Returns a variable with its default value.
   # The `_` prefix in an optional variable name is trimmed.
-  @spec variable_with_value( { atom(), list(), nil | list()}, keyword()) :: { input_expr(), input() | :_}
+  @spec variable_with_value( { atom(), list(), nil | list()}, keyword()) :: { input_expr(), input() | dummy()}
   defp variable_with_value( { _, _, [ _ | [ _ | _]]} = term, _) do
     raise "Term `#{ Macro.to_string( term)}` is not a variable."
   end
