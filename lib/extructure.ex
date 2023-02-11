@@ -24,7 +24,7 @@ defmodule Extructure do
   left side expression.
 
   Supports destructure-like implicit keys (with the same name as the
-  variable) as well as optional values, flexible keyword and key pair tuple
+  variable) as well as optional variables, flexible keyword and key-pair tuple
   size and order of elements, implicit transformation between a map, list
   and a key pair tuple.
 
@@ -33,18 +33,18 @@ defmodule Extructure do
   for the optional variables are allowed.
 
   Fully enforces pattern matching between the left and right side once
-  taken into account the optional values and structural transformation.
+  taken into account the optional variables and structural transformation.
 
-  When using optional values their key/value pairs are merged with the right
+  When using optional variables their key/value pairs are merged with the right
   hand side before applying the assignment.
 
   #### Features
 
-  - Optional values - Prefix the variable name with an underscore and/or
+  - Optional variables - Prefix the variable name with an underscore and/or
     declare it as a function with zero arguments. If used, the underscore
     is trimmed from the variable's name e.g. an `_a` is translated to `a`.
 
-  - Optional values - Declare the variable as a function taking the default
+  - Optional variables - Declare the variable as a function taking the default
     value as its single argument.
 
   - In the loose (default) mode use the maps, keywords and key-pair tuples

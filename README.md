@@ -37,7 +37,8 @@ The docs can be found at [HexDocs](https://hexdocs.pm/extructure).
 
 #### Fetching two mandatory variables and one optional from the LiveView assigns
 
-Assuming a map of socket assigns, a standard pattern matching followed by retrieving an optional value as shown below:
+Assuming a map of socket assigns, a standard pattern matching followed by retrieving an optional variable as shown
+below:
 
 ```elixir
 %{
@@ -90,7 +91,23 @@ or
 # => [ b: 2, a: 1]
 
 { b, a} <~ { { :a, 1}, { :b, 2}, { :c, 3}}
-# => { { :b, 2}, { :a, 1}}  
+# => { { :b, 2}, { :a, 1}}
+```
+
+#### Flexible keyword list head | tail extraction
+
+```elixir
+[ b | rest] <~ [ a: 1, b: 2, c: 3]
+# => [ b: 2, a: 1, c: 3]
+
+[ b | [ a, c]] <~ [ a: 1, b: 2, c: 3, d: 4]
+# => [ b: 2, a: 1, c: 3]
+
+[ a | [ b, c( 25)]] <~ %{ a: 1, b: 2}
+# => [a: 1, b: 2, c: 25]
+
+[ b | %{ c: %{ d}}] <~ [ a: 1, b: 2, c: %{ d: 5}]
+# => [ { :b, 2} | %{ a: 1, c: %{ d: 5}}
 ```
 
 #### Enforcing "rigid" (Elixir default) matching of the structures   
@@ -132,7 +149,7 @@ assert e == 5
 
 #### Optional variables and default values
 
-The original idea was to use the standard `\\` operator to denote optional and default values in lists, tuples, and 
+The original idea was to use the standard `\\` operator to denote optional and default variables in lists, tuples, and 
 maps, but, as shown below, the Elixir parser does not support this expression in maps.
 
 ```elixir
