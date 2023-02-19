@@ -2,9 +2,10 @@ defmodule Extructure do
   @moduledoc """
   Implementation of the `<~` extructure operator.
   """
+  require Logger
 
   @typep mode() :: :loose | :rigid
-  @typep metadata() :: keyword()
+  @typep head_tail() :: maybe_improper_list()
 
   @typep input() ::
            input_expr()
@@ -14,6 +15,7 @@ defmodule Extructure do
            | number()
            | binary()
 
+  @typep metadata() :: keyword()
   @typep input_expr() :: { input_expr() | atom(), metadata(), atom() | [ input()]}
   @typep dummy() :: :_
 
@@ -25,18 +27,14 @@ defmodule Extructure do
 
   Supports destructure-like implicit keys (with the same name as the
   variable) as well as optional variables, flexible keyword and key-pair tuple
-  size and order of elements, implicit transformation between a map, list
+  size and order of elements, implicit transformations between a map, list
   and a key pair tuple.
 
   Also supports toggling between the loose mode and the standard Elixir
-  pattern matching ("rigid") mode where none of the flexibilities except
-  for the optional variables are allowed.
+  pattern matching ("rigid") mode where none of the flexibilities are allowed.
 
-  Fully enforces pattern matching between the left and right side once
+  Fully enforces pattern matching between the left and the right side once
   taken into account the optional variables and structural transformation.
-
-  When using optional variables their key/value pairs are merged with the right
-  hand side before applying the assignment.
 
   #### Features
 
@@ -47,16 +45,16 @@ defmodule Extructure do
   - Optional variables - Declare the variable as a function taking the default
     value as its single argument.
 
-  - In the loose (default) mode use the maps, keywords and key-pair tuples
+  - In the loose (default) mode use maps, keywords and key-pair tuples
     interchangeably as you see fit.
 
   - Toggle the loose mode into the rigid mode by using the unary `^` operator
-    left to the map, list or tuple that requires Elixir-like pattern matching.
+    left to a map, list or tuple that requires Elixir-like pattern matching.
     If requiring a loose matching again at a nested level in the structure,
     use the `^` operator again to toggle back to loose and so on.
 
-  - To match typical tuples, switch to the rigid mode with the `^` operator,
-    if only for the tuple in question.
+  - To match typical tuples or non-keyword lists, switch to the rigid mode with
+    the `^` operator, if only for the tuple in question.
 
   For nesting, use the keys as you would in plain Elixir matching:
 
@@ -73,8 +71,8 @@ defmodule Extructure do
 
   #### Note
 
-  - Variables with specified keys must be (in a keyword list) trailing those
-  without the explicit keys:
+  - Variables with specified keys must be placed (in a keyword list) trailing
+    the ones without the explicit keys:
 
       ```elixir
       %{ a, b, c: c, d: _d} <~ %{ a: 1, b: 2, c: 3}
@@ -113,7 +111,7 @@ defmodule Extructure do
   [ first_name, last_name, age( 25)] <~ socket.assigns
   ```
 
-  See the `README.md` and `extructure_test.ex` files for more examples.
+  See the `README.md` and `extructure_test.exs` files for more examples.
   """
   defmacro left <~ right do
     extract( left, right)
@@ -150,11 +148,10 @@ defmodule Extructure do
   defp dig( args, opts) when is_list( args) do
     opts =
       opts
-      |> pair_var( true)
+      |> pair_var( opts[ :mode] == :loose)
       |> one_off()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], & &1)
+    dig_args( args, opts[ :mode], opts, & &1)
   end
 
   # map
@@ -164,8 +161,7 @@ defmodule Extructure do
       |> pair_var( true)
       |> one_off()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], &{ :%{}, context, &1})
+    dig_args( args, opts[ :mode], opts, &{ :%{}, context, &1})
   end
 
   # tuple other than a tuple of 2
@@ -175,8 +171,7 @@ defmodule Extructure do
       |> pair_var( opts[ :mode] == :loose)
       |> one_off()
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], &{ :{}, context, &1})
+    dig_args( args, opts[ :mode], opts, &{ :{}, context, &1})
   end
 
   # tuple of 2 special case, but not key/value pair
@@ -186,8 +181,7 @@ defmodule Extructure do
       |> pair_var( opts[ :mode] == :loose)
       |> one_off()
 
-    Enum.reduce( [ first, second], { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc( opts[ :mode], fn
+    dig_args( [ first, second], opts[ :mode], opts, fn
       [ first, second] ->
         { first, second}
 
@@ -203,23 +197,16 @@ defmodule Extructure do
       |> pair_var( false)
       |> one_off( var_optionality: "Can't use optional variable in an Elixir match")
 
-    Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
-    |> finalize_acc(
-      nil,
-      fn args ->
+    dig_args( args, nil, opts, &{ :=, context, &1}, fn
+      [ @dummy, right] ->
+        right
+
+      [ left, @dummy] ->
+        left
+
+      [ _left, _right] = args ->
         { :=, context, args}
-      end,
-      fn
-        [ @dummy, right] ->
-          right
-
-        [ left, @dummy] ->
-          left
-
-        [ _left, _right] = args ->
-          { :=, context, args}
-      end
-     )
+    end)
   end
 
   # list head | tail matching
@@ -253,7 +240,13 @@ defmodule Extructure do
 
       optional_variable?( variable) ->
         raise_on_no_optional( variable, opts)
-        { trim_underscore( variable), @dummy}
+        variable = trim_underscore( variable)
+
+        if opts[ :mode] == :rigid do
+          Logger.warn( "Optional variable #{ Macro.to_string( variable)} makes no sense in a rigid match.")
+        end
+
+        { variable, @dummy}
 
       true ->
         { trim_underscore( variable), @dummy}
@@ -285,6 +278,28 @@ defmodule Extructure do
   # everything else
   defp dig( other, _opts) do
     { other, @dummy}
+  end
+
+  # Applies the args creation and merger creation functions to each individual
+  # argument and merger dug up.
+  @spec dig_args( list(), mode() | nil, keyword(), creator, creator | nil) :: { input(), input() | { mode(), input()}}
+        when creator: ( list() -> input())
+  defp dig_args( args, mode, opts, creates_left, creates_merger \\ nil) do
+    { left_args, merger_args} = Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
+    creates_merger = creates_merger || creates_left
+    left = creates_left.( Enum.reverse( left_args))
+    merger = creates_merger.( Enum.reverse( merger_args))
+
+    { left, mode && { mode, merger} || merger}
+  end
+
+  # prepends a dug macro arg to args and mergers in the acc
+  @spec prepend_acc( input(), acc, keyword()) :: acc
+        when acc: { [ input()], [ input()]}
+  defp prepend_acc( left, acc, opts) do
+    { args, mergers} = acc
+    { arg, merger} = dig( left, opts)
+    { [ arg | args], [ merger | mergers]}
   end
 
   # Instructs interpreting sole variables as key pairs or leaving them as they are.
@@ -349,7 +364,7 @@ defmodule Extructure do
   # The `_` prefix in an optional variable name is trimmed.
   @spec variable_with_value( { atom(), list(), nil | list()}, keyword()) :: { input_expr(), input() | dummy()}
   defp variable_with_value( { _, _, [ _ | [ _ | _]]} = term, _) do
-    raise "Term `#{ Macro.to_string( term)}` is not a variable."
+    raise "Term `#{ Macro.to_string( term)}` is not an acceptable variable."
   end
 
   defp variable_with_value( { _, _, _} = variable, opts) do
@@ -396,27 +411,7 @@ defmodule Extructure do
     end
   end
 
-  # prepends a dug macro arg to args and mergers in the acc
-  @spec prepend_acc( input(), acc, keyword()) :: acc
-        when acc: { [ input()], [ input()]}
-  defp prepend_acc( left, acc, opts) do
-    { args, mergers} = acc
-    { arg, merger} = dig( left, opts)
-    { [ arg | args], [ merger | mergers]}
-  end
-
-  # reverses args and, unless @dummy, optionals too
-  @spec finalize_acc( { list(), list()}, mode() | nil, creator, creator | nil) ::
-          { input(), input() | { mode(), input()}}
-        when creator: ( list() -> input())
-  defp finalize_acc( acc, mode, creates_left, creates_merger \\ nil) do
-    creates_merger = creates_merger || creates_left
-    { left_args, merger_args} = acc
-    left = creates_left.( Enum.reverse( left_args))
-    merger = creates_merger.( Enum.reverse( merger_args))
-
-    { left, mode && { mode, merger} || merger}
-  end
+  defguard is_mode( mode) when mode in [ :loose, :rigid]
 
   # Deep-merges a map, Keyword or a tuple on the right into a map, Keyword or tuple on the left.
   # If the mode is loose, the right side structure is merged loosely into the left structure,
@@ -440,18 +435,21 @@ defmodule Extructure do
     |> Map.reject( &dummy?( &1))
   end
 
-  # improper loose list with any tail
-  def deep_merge( { :loose, [ head | @dummy]}, right) do
-    [ head] = deep_merge( { :loose, [ head]}, right)
-    tail = delete_pair( right, head)
-    [ head | to_list( tail)]
+  # list with dummy head and/or tail
+  def deep_merge( { mode, [ head | tail]} = left, right) when is_mode( mode) and ( head == @dummy or tail == @dummy) do
+    merge_head_tail( left, right)
   end
 
-  # improper loose list with tail to extructure
-  def deep_merge( { :loose, [ head | { mode, _} = tail]}, right) when mode in [ :loose, :rigid] do
-    [ head] = deep_merge( { :loose, [ head]}, right)
-    tail = deep_merge( tail, delete_pair( right, head))
-    [ head | tail]
+  # improper list with head merger structure
+  def deep_merge( { mode, [ { head_mode, _} | tail]} = left, right)
+      when is_mode( mode) and is_mode( head_mode) and tail != []
+    do
+    merge_head_tail( left, right)
+  end
+
+  # improper list with tail merger structure
+  def deep_merge( { mode, [ _ | { tail_mode, _}]} = left, right) when is_mode( mode) and is_mode( tail_mode) do
+    merge_head_tail( left, right)
   end
 
   # loose list
@@ -466,10 +464,22 @@ defmodule Extructure do
     Enum.map( left_keys, &{ &1, merged[ &1]})
   end
 
-  # rigid list
+  # rigid list with another same-size list
+  def deep_merge( { :rigid, left}, right) when is_list( left) and is_list( right) do
+    if length( left) == length( right) do
+      [ left, right]
+      |> List.zip()
+      |> Enum.map( fn { left, right} ->
+        deep_resolve( left, right)
+      end)
+    else
+      raise MatchError, term: right
+    end
+  end
+
+  # rigid list with with any other structure
   def deep_merge( { :rigid, left}, right) when is_list( left) do
-    Keyword.merge( left, right, &deep_resolve/3)
-    |> Keyword.reject( &dummy?( &1))
+    raise MatchError, term: right
   end
 
   # loose tuple
@@ -478,15 +488,16 @@ defmodule Extructure do
     |> List.to_tuple()
   end
 
-  # rigid tuple with another same-sized rigid tuple
+  # rigid tuple with another same-sized tuple
   def deep_merge( { :rigid, left}, right)
       when is_tuple( left) and
            is_tuple( right) and
            tuple_size( left) == tuple_size( right)
     do
-    List.zip( [ Tuple.to_list( left), Tuple.to_list( right)])
+    [ Tuple.to_list( left), Tuple.to_list( right)]
+    |> List.zip()
     |> Enum.map( fn { left, right} ->
-      deep_resolve( nil, left, right)
+      deep_resolve( left, right)
     end)
     |> List.to_tuple()
   end
@@ -500,7 +511,61 @@ defmodule Extructure do
   def deep_merge( left, nil), do: left
   def deep_merge( _left, right), do: right
 
-  # Merge recursively if the key exists in both structures.
+  # Merges any of the legit head | tail combinations
+  @spec merge_head_tail( { mode(), head_tail()}, term()) :: list()
+
+  # loose [ key-pair head | any tail]
+  defp merge_head_tail( { :loose, [ { k, _} = head | @dummy]}, right) when is_atom( k) do
+    [ head] = deep_merge( { :loose, [ head]}, right)
+    tail = delete_pair( right, head)
+    [ head | to_list( tail)]
+  end
+
+  # loose [ key-pair head | term or a merger structure tail]
+  defp merge_head_tail( { :loose, [ { k, _} = head | tail]}, right) when is_atom( k) do
+    [ head] = deep_merge( { :loose, [ head]}, right)
+    tail = deep_merge( tail, delete_pair( right, head))
+    [ head | tail]
+  end
+
+  # loose list with an invalid merger format.
+  defp merge_head_tail( { :loose, _} = left, _right) do
+    raise ArgumentError, "Invalid loose merger format: #{ inspect( left)}"
+  end
+
+  # rigid list with a term other than list on the right side
+  defp merge_head_tail( { :rigid, _}, right) when not is_list( right) do
+    raise MatchError, term: right
+  end
+
+  # rigid [ any head | any tail]
+  defp merge_head_tail( { :rigid, [ @dummy | @dummy]}, right) do
+    right
+  end
+
+  # rigid [ any head | tail term or merger structure]
+  defp merge_head_tail( { :rigid, [ @dummy | tail]}, right) do
+    tail = deep_merge( tail, tl( right))
+    [ hd( right) | tail]
+  end
+
+  # rigid [ head term or merger structure | any tail]
+  defp merge_head_tail( { :rigid, [ head | @dummy]}, right) do
+    head = deep_merge( head, hd( right))
+    [ head | tl( right)]
+  end
+
+  # rigid [ term or merger structure | term or merger structure]
+  defp merge_head_tail( { :rigid, [ head | tail]}, right) do
+    head = deep_merge( head, hd( right))
+    tail = deep_merge( tail, tl( right))
+    [ head | tail]
+  end
+
+  # Merge recursively both left and right side values are structures,
+  # otherwise return the right side value.
+  @spec deep_resolve( atom(), any(), any()) :: any()
+  defp deep_resolve( key \\ nil, left, right)
   defp deep_resolve( _key, left, right)
        when ( is_map( left) or is_list( left) or is_tuple( left)) and
             ( is_map( right) or is_list( right) or is_tuple( right))
@@ -509,27 +574,27 @@ defmodule Extructure do
   end
   defp deep_resolve( _key, _left, right), do: right
 
-  # Skip element marked as dummy.
+  # Verifies if a merger is a dummy.
   defp dummy?( { _, @dummy}), do: true
   defp dummy?( { _, _}), do: false
 
-  # Transform keyword list or tuple into map
+  # Transforms keyword list or tuple into map
   defp to_map( %{} = map), do: map
   defp to_map( kw) when is_list( kw), do: Map.new( kw)
   defp to_map( tuple) when is_tuple( tuple), do: to_list( tuple) |> Map.new()
 
-  # Transform map or tuple into keyword list.
+  # Transforms map or tuple into keyword list.
   defp to_list( kw) when is_list( kw), do: kw
   defp to_list( %{} = map), do: Keyword.new( map)
   defp to_list( tuple) when is_tuple( tuple), do: Tuple.to_list( tuple)
 
-  # Delete key pair from a structure
+  # Deletes key pair from a structure
   defp delete_pair( kw, pair) when is_list( kw), do: List.delete( kw, pair)
   defp delete_pair( %{} = map, pair), do: Map.delete( map, elem( pair, 0))
   defp delete_pair( tuple, pair) when is_tuple( tuple) do
     tuple
     |> Tuple.to_list()
-    |> delete_pair(pair)
+    |> delete_pair( pair)
     |> List.to_tuple()
   end
 end

@@ -2,8 +2,8 @@
 
 Extructure is a flexible destructure library for Elixir.
 
-By default the library is using loose (flexible) matching, allowing for implicit structural conversions (maps,
-lists and tuples, from one to another). Tuple and list key pair element order are also taken loosely by default.   
+By default the library is using loose (flexible) matching, allowing for implicit structural conversions (maps, lists and
+tuples, from one to another). The key-pair element order in a tuple or a list is also taken loosely by default.   
 
 Toggling from loose to Elixir-default ("rigid") mode is done via the `^` operator.
 
@@ -37,7 +37,7 @@ The docs can be found at [HexDocs](https://hexdocs.pm/extructure).
 
 #### Fetching two mandatory variables and one optional from the LiveView assigns
 
-Assuming a map of socket assigns, a standard pattern matching followed by retrieving an optional variable as shown
+Assuming a map of socket assigns, a standard pattern matching followed by retrieving an optional variable is shown
 below:
 
 ```elixir
@@ -84,7 +84,7 @@ or
 [ first_name, last_name, _age( 25)] <~ socket.assigns
 ```
 
-#### Flexible keyword list and tuple of key pairs size and element order
+#### Flexible keyword list or tuple size and element order
 
 ```elixir
 [ b, a] <~ [ a: 1, b: 2, c: 3]
@@ -110,20 +110,49 @@ or
 # => [ { :b, 2} | %{ a: 1, c: %{ d: 5}}
 ```
 
+#### Fetching non-optional values
+
+```elixir
+foo = Keyword.fetch!( opts, :foo)
+bar = Keyword.fetch!( opts, :bar)
+baz = Keyword.fetch!( opts, :baz)
+```
+
+or
+
+```elixir
+foo = Map.fetch!( opts, :foo)
+bar = Map.fetch!( opts, :bar)
+baz = Map.fetch!( opts, :baz)
+```
+
+can both be written simply as:
+
+```elixir
+[ foo, bar, baz] <~ opts
+# => fails if any of the three is not present in the opts
+```
+
 #### Enforcing "rigid" (Elixir default) matching of the structures   
 
-The rigid approach is useful to ensure the Elixir-like matching of the right side, and necessary if deconstructing
-standard Elixir tuples.
+The rigid approach is useful to ensure an Elixir-like matching of the right side, and necessary if deconstructing
+standard Elixir tuples or non-keyword lists.
 
 ```elixir
 ^{ a, b, c} <~ { 1, 2, 3}
 # ok
 
-^{ b, a} <~ { { :a, 1}, { :b, 2}, { :c, 3}}
+^[ a, b, c] <~ [ 1, 2, 3]
+# ok
+
+^{ b, a} <~ { 1, 2, 3}
 # error
 
-^[ b, a] <~ [ a: 1, b: 2, c: 3]
+^[ a, b, c, d] <~ [ 1, 2, 3]
 # error 
+
+^[ a, b, c: c] <~ [ 1, 2, 3]
+# error
 
 ^%{ a} <~ %{ a: 1, b: 2}
 # ok
@@ -159,7 +188,7 @@ maps, but, as shown below, the Elixir parser does not support this expression in
 ```
 
 So, decision was made that, until there's a progress with the Elixir parser, the underscore prefixed variable names will
-be used for optional variables defaulting to nil, and function (macro) call syntax will be used for the optional
+be used for optional variables defaulting to nil, and the function (macro) call syntax will be used for the optional
 variables defaulting to nil or any other value, e.g.:
 
 ```elixir
@@ -171,7 +200,8 @@ variables defaulting to nil or any other value, e.g.:
 
 The above syntax is used uniformly with all three types (maps, lists, tuples).           
 
-The limitation that comes with this approach is that there can't be macro calls placed within the left-side expression.
+The limitation that comes with this approach is that user-defined macro calls cannot be placed within the left-side
+expression.
 
 Should the Elixir core team decide to remove the parser restriction, a support for the standard Elixir optional
 variables (arguments) would be added and the present notation would be slowly phased out (leaving it to the
@@ -183,9 +213,9 @@ The source code formatting in this library diverges from the standard formatting
 in so much that there's a leading space character inserted before each initial argument / element with an intention to
 improve the code readability (subject to the author's personal perception).
 
-Another detail diverging from the standard Elixir formatting is that, where present, multi-line function signatures
-and `with` statements will not have the `do` at the end of the last of the lines but, instead, indented in the new
-line, e.g.:
+Another detail diverging from the standard Elixir formatting is that, where present, multi-line function signatures,
+and multi-line `for`, `with`, `if`, etc. statements will not have the `do` at the end of the last of the lines but,
+instead, indented in a new line, e.g.:
 
 ```elixir
 with { _, foo} <- get_foo( a, b, c),

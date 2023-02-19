@@ -201,12 +201,18 @@ defmodule ExtructureTest do
   end
 
   test "rigid list" do
-    ^[ a, b] <~ [ a: 1, b: 2]
+    ^[ a, b] <~ [ 1, 2]
     assert a == 1
     assert b == 2
   end
 
-  test "fail rigid different size list" do
+  test "rigid keyword list" do
+    ^[ a: a, b: b] <~ [ a: 1, b: 2]
+    assert a == 1
+    assert b == 2
+  end
+
+  test "fail rigid list when different size" do
     assert_raise MatchError, fn ->
       ^[ a, b] <~ [ a: 1, b: 2, c: 3]
       assert a == 1
@@ -214,11 +220,35 @@ defmodule ExtructureTest do
     end
   end
 
-  test "fail rigid different element order list" do
+  test "fail rigid keyword list when different size" do
     assert_raise MatchError, fn ->
-      ^[ b, a] <~ [ a: 1, b: 2]
+      ^[ a, b] <~ [ a: 1, b: 2, c: 3]
+      assert a == 1
+      assert b == 2
+    end
+  end
+
+  test "fail rigid keyword list when different order of elements" do
+    assert_raise MatchError, fn ->
+      ^[ b: b, a: a] <~ [ a: 1, b: 2]
       assert b == 2
       assert a == 1
+    end
+  end
+
+  test "fail rigid list from map" do
+    assert_raise MatchError, fn ->
+      ^[ a, b] <~ %{ a: 1, b: 2}
+      assert a == { :a, 1}
+      assert b == { :b, 2}
+    end
+  end
+
+  test "fail rigid list from tuple" do
+    assert_raise MatchError, fn ->
+      ^[ a, b] <~ { { :a, 1}, { :b, 2}}
+      assert a == { :a, 1}
+      assert b == { :b, 2}
     end
   end
 
@@ -238,22 +268,6 @@ defmodule ExtructureTest do
     end
   end
 
-  test "fail rigid list from map" do
-    assert_raise FunctionClauseError, fn ->
-      ^[ a, b] <~ %{ a: 1, b: 2}
-      assert a == 1
-      assert b == 2
-    end
-  end
-
-  test "fail rigid list from tuple" do
-    assert_raise FunctionClauseError, fn ->
-      ^[ a, b] <~ { { :a, 1}, { :b, 2}}
-      assert a == 1
-      assert b == 2
-    end
-  end
-
   test "rigid two element tuple from tuple" do
     ^{ a, b} <~ { 1, 2}
     assert a == 1
@@ -261,7 +275,7 @@ defmodule ExtructureTest do
   end
 
   test "rigid other than two element tuple from tuple" do
-    ^{ a, b, _c} <~ { 1, 2, 3}
+    ^{ a, b, c} <~ { 1, 2, 3}
     assert a == 1
     assert b == 2
     assert c == 3
@@ -297,46 +311,85 @@ defmodule ExtructureTest do
     end
   end
 
-  test "keyword list head and tail in loose mode" do
+  test "loose keyword list [ head | tail]" do
     [ a | rest] <~ [ a: 1, b: 2, c: 3]
     assert a == 1
     assert rest == [ b: 2, c: 3]
   end
 
-  test "keyword list head and tail arbitrary var loose mode" do
+  test "loose keyword list [ head | tail] arbitrary var" do
     [ b | rest] <~ [ a: 1, b: 2, c: 3]
     assert b == 2
     assert rest == [ a: 1, c: 3]
   end
 
-  test "keyword list head and tail from map" do
+  test "loose keyword list [ head | tail] from map" do
     [ b | rest] <~ %{ a: 1, b: 2, c: 3}
     assert b == 2
     assert rest[ :a] == 1
     assert rest[ :c] == 3
   end
 
-  test "keyword list head and tail from key-pair tuple" do
+  test "loose keyword list [ head | tail] from key-pair tuple" do
     [ b | [ a, c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
     assert b == 2
     assert a == 1
     assert c == 3
   end
 
-  test "keyword list head and structured tail" do
-    [ b | [ a, c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
-    assert b == 2
-    assert a == 1
-    assert c == 3
-  end
-
-  test "keyword list head and structured tail with inside head and tail" do
+  test "loose keyword list [ head | [ head | tail]" do
     [ b | [ a | c]] <~ { { :a, 1}, { :b, 2}, { :c, 3}}
     assert b == 2
     assert a == 1
     assert c == [ c: 3]
   end
 
-  test "list head and tail rigid mode" do
+  test "loose keyword list structured head" do
+    [ { :a, %{ b}} | %{ c, d}] <~ [ a: %{ b: 2}, c: 3, d: 4]
+    assert b == 2
+    assert c == 3
+    assert d == 4
+  end
+
+  test "fail non-keyword list on the right side" do
+    assert_raise ArgumentError, fn ->
+      [ %{ a} | %{ c, d}] <~ [ [ a: 1], %{ c: 3, d: 4}]
+      assert a == 1
+      assert c == 3
+      assert d == 4
+    end
+  end
+
+  test "rigid list [ any head | any tail]" do
+    ^[ a | rest] <~ [ 1, 2, 3]
+    assert a == 1
+    assert rest == [ 2, 3]
+  end
+
+  test "rigid list [ any head | tail structure]" do
+    ^[ a | [ b, c]] <~ [ 1, 2, 3]
+    assert a == 1
+    assert b == 2
+    assert c == 3
+  end
+
+  test "rigid list [ head structure | any tail]" do
+    ^[ %{ a} | rest] <~ [ %{ a: 1}, c: 3, d: 4]
+    assert a == 1
+    assert rest == [ c: 3, d: 4]
+  end
+
+  test "rigid list [ head structure | tail structure]" do
+    ^[ %{ a} | [ %{ c, d}]] <~ [ %{ a: 1}, %{ c: 3, d: 4}]
+    assert a == 1
+    assert c == 3
+    assert d == 4
+  end
+
+  test "rigid list [ loose head structure | loose tail structure]" do
+    ^[ ^[ a] | [ ^[ c, d]]] <~ [ %{ a: 1}, %{ c: 3, d: 4}]
+    assert a == 1
+    assert c == 3
+    assert d == 4
   end
 end
