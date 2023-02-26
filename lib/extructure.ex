@@ -425,7 +425,7 @@ defmodule Extructure do
 
   # loose map
   def deep_merge( { :loose, %{} = left}, right) do
-    Map.merge( left, to_map( right), &deep_resolve/3)
+    Map.merge( left, Map.take( to_map( right), Map.keys( left)), &deep_resolve/3)
     |> Map.reject( &dummy?( &1))
   end
 
