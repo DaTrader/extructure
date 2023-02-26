@@ -158,6 +158,22 @@ standard Elixir tuples or non-keyword lists.
 # ok
 ```
 
+#### Destructuring from module (named) structures
+
+This is similar to destructuring from a map:
+
+```elixir
+[ hour, minute, second] <~ DateTime.utc_now()
+# => [hour: 15, minute: 44, second: 14]
+``` 
+
+or with the module key:
+
+```elixir
+[ __struct__: module] <~ DateTime.utc_now()
+# => [__struct__: DateTime]
+```
+
 #### Nesting
 
 Any level of nesting is supported, and with the `^` operator toggling from loose to rigid and vice versa, any matching
@@ -173,6 +189,25 @@ assert c == 3
 assert d == 4
 assert e == 5
 ```
+
+#### Transforming an entire structure
+
+When in need to extract and transform an entire structure and not just some of its elements, all it takes is specifying
+an empty target structure (similar to `Enum.into/2`, but consistent with the Extructure syntax, so that nesting is
+supported along with any other destructuring variables).
+
+Ex:  
+
+  ```elixir
+  [ a: a = %{}] <~ [ a: [ b: 2, c: 3]]
+  # a
+  # => %{ b: 2, c: 3}
+  ``` 
+  or
+  ```elixir
+  a = [] <~ %{ b: 2, c: 3}
+  # => [ b: 2, c: 3]
+  ```
 
 ## Limitations
 

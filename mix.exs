@@ -6,8 +6,9 @@ defmodule Extructure.MixProject do
   def project do
     [
       app: :extructure,
-      version: "0.2.0",
+      version: "0.2.1",
       elixir: "~> 1.13",
+      elixirc_paths: elixirc_paths( Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Extructure is a flexible destructure library for Elixir.",
@@ -22,6 +23,9 @@ defmodule Extructure.MixProject do
       ]
     ]
   end
+
+  defp elixirc_paths( :test), do: [ "lib", "test/fixtures"]
+  defp elixirc_paths( _), do: [ "lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
