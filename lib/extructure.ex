@@ -605,6 +605,9 @@ defmodule Extructure do
 
   # Transforms map or tuple into keyword list.
   defp to_list( kw) when is_list( kw), do: kw
+  defp to_list( %{ __struct__: module} = struct) do
+    [ __struct__: module] ++ to_list( Map.from_struct( struct))
+  end
   defp to_list( %{} = map), do: Keyword.new( map)
   defp to_list( tuple) when is_tuple( tuple), do: Tuple.to_list( tuple)
 

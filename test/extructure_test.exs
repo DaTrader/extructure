@@ -449,4 +449,18 @@ defmodule ExtructureTest do
       [ a: ^{}] <~ [ a: [ b: 2]]
     end
   end
+
+  test "destructure from a module structure" do
+    %{ a, b} <~ %Foo{ a: 1, b: 2}
+    assert a == 1
+    assert b == 2
+
+    [ a, b] <~ %Foo{ a: 3, b: 4}
+    assert a == 3
+    assert b == 4
+
+    { a, b} <~ %Foo{ a: 5, b: 6}
+    assert a == 5
+    assert b == 6
+  end
 end
