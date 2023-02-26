@@ -392,4 +392,61 @@ defmodule ExtructureTest do
     assert c == 3
     assert d == 4
   end
+
+  test "loose empty map: transform whole structure into a map" do
+    [ a: a = %{}] <~ [ a: [ b: 2, c: 3]]
+    assert a == %{ b: 2, c: 3}
+
+    a = %{} <~ [ d: 4, e: 5]
+    assert a == %{ d: 4, e: 5}
+  end
+
+  test "loose empty list: transform whole structure into a keyword list" do
+    [ a: a = []] <~ [ a: %{ b: 2, c: 3}]
+    assert a == [ b: 2, c: 3]
+
+    a = [] <~ %{ d: 4, e: 5}
+    assert a == [ d: 4, e: 5]
+  end
+
+  test "loose empty tuple: transform whole structure into a tuple of key pairs" do
+    [ a: a = {}] <~ [ a: %{ b: 2, c: 3}]
+    assert a == { { :b, 2}, { :c, 3}}
+
+    a = {} <~ [ d: 4, e: 5]
+    assert a == { { :d, 4}, { :e, 5}}
+  end
+
+  test "rigid empty map: take whole structure if map" do
+    [ a: a = ^%{}] <~ [ a: %{ b: 2}]
+    assert a == %{ b: 2}
+  end
+
+  test "rigid empty map: fail if not a map" do
+    assert_raise BadMapError, fn ->
+      [ a: ^%{}] <~ [ a: [ b: 2]]
+    end
+  end
+
+  test "rigid empty list: take whole structure if list" do
+    [ a: a = ^[]] <~ [ a: [ b: 2]]
+    assert a == [ b: 2]
+  end
+
+  test "rigid empty list: fail if not a list" do
+    assert_raise MatchError, fn ->
+      [ a: ^[]] <~ [ a: %{ b: 2}]
+    end
+  end
+
+  test "rigid empty tuple: take whole structure if tuple" do
+    [ a: a = ^{}] <~ [ a: { 2}]
+    assert a == { 2}
+  end
+
+  test "rigid empty tuple: fail if not a tuple" do
+    assert_raise MatchError, fn ->
+      [ a: ^{}] <~ [ a: [ b: 2]]
+    end
+  end
 end

@@ -144,14 +144,24 @@ defmodule Extructure do
   #   expression into so that
   @spec dig( input(), keyword()) :: { input(), { mode(), input()} | input()}
 
+  # empty list (transform the entire structure)
+  defp dig( [] = args, opts) do
+    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, & &1)
+  end
+
   # list
-  defp dig( args, opts) when is_list( args) do
+  defp dig( [ _ | _] = args, opts) do
     opts =
       opts
       |> pair_var( opts[ :mode] == :loose)
       |> one_off()
 
     dig_args( args, opts[ :mode], opts, & &1)
+  end
+
+  # empty map (transform the entire structure)
+  defp dig( { :%{}, context, [] = args}, opts) do
+    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, &{ :%{}, context, &1})
   end
 
   # map
@@ -162,6 +172,11 @@ defmodule Extructure do
       |> one_off()
 
     dig_args( args, opts[ :mode], opts, &{ :%{}, context, &1})
+  end
+
+  # empty tuple (transform the entire structure)
+  defp dig( { :{}, context, [] = args}, opts) do
+    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, &{ :{}, context, &1})
   end
 
   # tuple other than a tuple of 2
@@ -423,15 +438,13 @@ defmodule Extructure do
              type_right: type,
              type: map() | keyword() | tuple()
 
-  # loose map
-  def deep_merge( { :loose, %{} = left}, right) do
-    Map.merge( left, Map.take( to_map( right), Map.keys( left)), &deep_resolve/3)
-    |> Map.reject( &dummy?( &1))
-  end
+  # loose or rigid map
+  def deep_merge( { :loose, %{} = left}, right) when map_size( left) == 0, do: to_map( right)
+  def deep_merge( { :rigid, %{} = left}, %{} = right) when map_size( left) == 0, do: right
+  def deep_merge( { mode, %{} = left}, right) when is_mode( mode) do
+    right = mode == :loose && to_map( right) || right
 
-  # rigid map
-  def deep_merge( { :rigid, %{} = left}, right) do
-    Map.merge( left, right, &deep_resolve/3)
+    Map.merge( left, Map.take( right, Map.keys( left)), &deep_resolve/3)
     |> Map.reject( &dummy?( &1))
   end
 
@@ -453,7 +466,8 @@ defmodule Extructure do
   end
 
   # loose list
-  def deep_merge( { :loose, left}, right) when is_list( left) do
+  def deep_merge( { :loose, []}, right), do: to_list( right)
+  def deep_merge( { :loose, [ _ | _] = left}, right) do
     left_keys = Keyword.keys( left)
 
     merged =
@@ -464,8 +478,11 @@ defmodule Extructure do
     Enum.map( left_keys, &{ &1, merged[ &1]})
   end
 
+  # rigid empty list replaced with another list
+  def deep_merge( { :rigid, []}, right) when is_list( right), do: right
+
   # rigid list with another same-size list
-  def deep_merge( { :rigid, left}, right) when is_list( left) and is_list( right) do
+  def deep_merge( { :rigid, [ _ | _] = left}, [ _ | _] = right) do
     if length( left) == length( right) do
       [ left, right]
       |> List.zip()
@@ -488,11 +505,14 @@ defmodule Extructure do
     |> List.to_tuple()
   end
 
+  # rigid tuple replaced with another tuple
+  def deep_merge( { :rigid, {}}, right) when is_tuple( right), do: right
+
   # rigid tuple with another same-sized tuple
   def deep_merge( { :rigid, left}, right)
-      when is_tuple( left) and
-           is_tuple( right) and
-           tuple_size( left) == tuple_size( right)
+      when is_tuple( left)
+           and is_tuple( right)
+           and tuple_size( left) == tuple_size( right)
     do
     [ Tuple.to_list( left), Tuple.to_list( right)]
     |> List.zip()
