@@ -2,6 +2,7 @@ defmodule Extructure do
   @moduledoc """
   Implementation of the `<~` extructure operator.
   """
+  alias Extructure.DigOpts
   require Logger
 
   @typep mode() :: :loose | :rigid
@@ -121,8 +122,12 @@ defmodule Extructure do
   @spec extract( input(), input()) :: Macro.output()
   defp extract( left, right) do
     opts =
-      [ mode: :loose]
-      |> one_off( var_optionality: "Can't use optional variable outside of an Extructure match.")
+      DigOpts.new(
+        mode: :loose,
+        pair_var: false,
+        one_off: []
+      )
+      |> DigOpts.one_off( var_optionality: "Can't use optional variable outside of an Extructure match.")
 
     case { left, dig( left, opts)} do
       { _, { term, @dummy}} ->
@@ -142,61 +147,61 @@ defmodule Extructure do
   #    whether derived from their names or from the explicitly specified keys,
   # - a merger structure derived from the left side expression to deep-merge the right-side
   #   expression into so that
-  @spec dig( input(), keyword()) :: { input(), { mode(), input()} | input()}
+  @spec dig( input(), DigOpts.t()) :: { input(), { mode(), input()} | input()}
 
   # empty list (transform the entire structure)
   defp dig( [] = args, opts) do
-    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, & &1)
+    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, & &1)
   end
 
   # list
   defp dig( [ _ | _] = args, opts) do
     opts =
       opts
-      |> pair_var( opts[ :mode] == :loose)
-      |> one_off()
+      |> DigOpts.pair_var( opts.mode == :loose)
+      |> DigOpts.one_off()
 
-    dig_args( args, opts[ :mode], opts, & &1)
+    dig_args( args, opts.mode, opts, & &1)
   end
 
   # empty map (transform the entire structure)
   defp dig( { :%{}, context, [] = args}, opts) do
-    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, &{ :%{}, context, &1})
+    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, &{ :%{}, context, &1})
   end
 
   # map
   defp dig( { :%{}, context, args}, opts) do
     opts =
       opts
-      |> pair_var( true)
-      |> one_off()
+      |> DigOpts.pair_var( true)
+      |> DigOpts.one_off()
 
-    dig_args( args, opts[ :mode], opts, &{ :%{}, context, &1})
+    dig_args( args, opts.mode, opts, &{ :%{}, context, &1})
   end
 
   # empty tuple (transform the entire structure)
   defp dig( { :{}, context, [] = args}, opts) do
-    dig_args( args, opts[ :mode], opts, fn _ -> { @dummy, [], nil} end, &{ :{}, context, &1})
+    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, &{ :{}, context, &1})
   end
 
   # tuple other than a tuple of 2
   defp dig( { :{}, context, args}, opts) do
     opts =
       opts
-      |> pair_var( opts[ :mode] == :loose)
-      |> one_off()
+      |> DigOpts.pair_var( opts.mode == :loose)
+      |> DigOpts.one_off()
 
-    dig_args( args, opts[ :mode], opts, &{ :{}, context, &1})
+    dig_args( args, opts.mode, opts, &{ :{}, context, &1})
   end
 
   # tuple of 2 special case, but not key/value pair
   defp dig( { first, second}, opts) when not is_atom( first) do
     opts =
       opts
-      |> pair_var( opts[ :mode] == :loose)
-      |> one_off()
+      |> DigOpts.pair_var( opts.mode == :loose)
+      |> DigOpts.one_off()
 
-    dig_args( [ first, second], opts[ :mode], opts, fn
+    dig_args( [ first, second], opts.mode, opts, fn
       [ first, second] ->
         { first, second}
 
@@ -209,8 +214,8 @@ defmodule Extructure do
   defp dig( { :=, context, args}, opts) do
     opts =
       opts
-      |> pair_var( false)
-      |> one_off( var_optionality: "Can't use optional variable in an Elixir match")
+      |> DigOpts.pair_var( false)
+      |> DigOpts.one_off( var_optionality: "Can't use optional variable in an Elixir match")
 
     dig_args( args, nil, opts, &{ :=, context, &1}, fn
       [ @dummy, right] ->
@@ -226,11 +231,11 @@ defmodule Extructure do
 
   # list head | tail matching
   defp dig( { :|, context, args}, opts) do
-    opts = one_off( opts)
+    opts = DigOpts.one_off( opts)
 
     [ head, tail] = args
     { head_args, head_merger} = dig( head, opts)
-    { tail_args, tail_merger} = dig( tail, pair_var( opts, false))
+    { tail_args, tail_merger} = dig( tail, DigOpts.pair_var( opts, false))
     args = [ head_args, tail_args]
     merger = [ head_merger, tail_merger]
     { { :|, context, args}, { :|, context, merger}}
@@ -240,8 +245,8 @@ defmodule Extructure do
   defp dig( { :^, _context, args}, opts) do
     opts =
       opts
-      |> pair_var( true)
-      |> toggle_match_mode()
+      |> DigOpts.pair_var( true)
+      |> DigOpts.toggle_mode()
 
     [ arg] = args
     dig( arg, opts)
@@ -250,14 +255,14 @@ defmodule Extructure do
   # standalone variable (without a key)
   defp dig( { var_key, _, _} = variable, opts) when is_atom( var_key) do
     cond do
-      opts[ :pair_var] ->
+      opts.pair_var ->
         interpret_var( {}, variable, opts)
 
       optional_variable?( variable) ->
         raise_on_no_optional( variable, opts)
         variable = trim_underscore( variable)
 
-        if opts[ :mode] == :rigid do
+        if opts.mode == :rigid do
           Logger.warn( "Optional variable #{ Macro.to_string( variable)} makes no sense in a rigid match.")
         end
 
@@ -270,7 +275,7 @@ defmodule Extructure do
 
   # other key/term pair
   defp dig( { key, term}, opts) when is_atom( key) do
-    opts = pair_var( opts, true)
+    opts = DigOpts.pair_var( opts, true)
 
     case { term, dig( term, opts)} do
       { { :^, _, _}, { term, @dummy}} ->
@@ -297,7 +302,7 @@ defmodule Extructure do
 
   # Applies the args creation and merger creation functions to each individual
   # argument and merger dug up.
-  @spec dig_args( list(), mode() | nil, keyword(), creator, creator | nil) :: { input(), input() | { mode(), input()}}
+  @spec dig_args( list(), mode() | nil, DigOpts.t(), creator, creator | nil) :: { input(), input() | { mode(), input()}}
         when creator: ( list() -> input())
   defp dig_args( args, mode, opts, creates_left, creates_merger \\ nil) do
     { left_args, merger_args} = Enum.reduce( args, { [], []}, &prepend_acc( &1, &2, opts))
@@ -309,7 +314,7 @@ defmodule Extructure do
   end
 
   # prepends a dug macro arg to args and mergers in the acc
-  @spec prepend_acc( input(), acc, keyword()) :: acc
+  @spec prepend_acc( input(), acc, DigOpts.t()) :: acc
         when acc: { [ input()], [ input()]}
   defp prepend_acc( left, acc, opts) do
     { args, mergers} = acc
@@ -317,48 +322,11 @@ defmodule Extructure do
     { [ arg | args], [ merger | mergers]}
   end
 
-  # Instructs interpreting sole variables as key pairs or leaving them as they are.
-  @spec pair_var( keyword(), boolean()) :: keyword()
-  defp pair_var( opts, true) do
-    Keyword.put( opts, :pair_var, true)
-  end
-
-  defp pair_var( opts, false) do
-    Keyword.delete( opts, :pair_var)
-  end
-
-  # Sets one off options valid for just the next nested AST level.
-  @spec one_off( keyword(), keyword() | nil) :: keyword()
-  defp one_off( opts, one_off \\ nil)
-  defp one_off( opts, one_off) when one_off in [ nil, []] do
-    Keyword.delete( opts, :one_off)
-  end
-
-  defp one_off( opts, one_off) do
-    Keyword.put( opts, :one_off, one_off)
-  end
-
-  # Toggles structural matching mode from rigid to loose and vice versa.
-  # Raises KeyError if :mode not found in options.
-  @spec toggle_match_mode( keyword()) :: keyword()
-  defp toggle_match_mode( opts) do
-    update_in( opts[ :mode], fn
-      :rigid ->
-        :loose
-
-      :loose ->
-        :rigid
-
-      nil ->
-        raise KeyError, key: :mode, term: "dig options"
-    end)
-  end
-
   # Interprets a variable with an optionally provided key to override
   # the variable name as a key.
   # Since nil is a valid key, we use a key holding tuple that can have
   # 0 or 1 elements.
-  @spec interpret_var( {} | { atom()}, tuple(), keyword()) ::
+  @spec interpret_var( {} | { atom()}, tuple(), DigOpts.t()) ::
           { { atom(), tuple()}, { atom(), dummy()}} |
           { { atom(), tuple()}, { atom(), any()}}
   defp interpret_var( key_holder, variable, opts) do
@@ -377,7 +345,7 @@ defmodule Extructure do
 
   # Returns a variable with its default value.
   # The `_` prefix in an optional variable name is trimmed.
-  @spec variable_with_value( { atom(), list(), nil | list()}, keyword()) :: { input_expr(), input() | dummy()}
+  @spec variable_with_value( { atom(), list(), nil | list()}, DigOpts.t()) :: { input_expr(), input() | dummy()}
   defp variable_with_value( { _, _, [ _ | [ _ | _]]} = term, _) do
     raise "Term `#{ Macro.to_string( term)}` is not an acceptable variable."
   end
@@ -405,9 +373,9 @@ defmodule Extructure do
   end
 
   # Raises if a reason was provided why a var cannot be optional.
-  @spec raise_on_no_optional( input_expr(), keyword()) :: :ok | no_return()
+  @spec raise_on_no_optional( input_expr(), DigOpts.t()) :: :ok | no_return()
   defp raise_on_no_optional( variable, opts) do
-    if reason = opts[ :one_off][ :var_optionality] do
+    if reason = opts.one_off[ :var_optionality] do
       raise ArgumentError, "#{ inspect( reason)}: #{ Macro.to_string( variable)}."
     else
       :ok
