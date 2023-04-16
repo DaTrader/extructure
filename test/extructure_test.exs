@@ -463,4 +463,18 @@ defmodule ExtructureTest do
     assert a == 5
     assert b == 6
   end
+
+  test "fail missing non optional variables in loose list" do
+    assert_raise MatchError, fn ->
+      [ a] <~ [ b: 1]
+      assert a == nil
+    end
+  end
+
+  test "fail missing non optional variables in loose tuple" do
+    assert_raise MatchError, fn ->
+      { a} <~ [ b: 1]
+      assert a == nil
+    end
+  end
 end

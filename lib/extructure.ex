@@ -436,14 +436,25 @@ defmodule Extructure do
   # loose list
   def deep_merge( { :loose, []}, right), do: to_list( right)
   def deep_merge( { :loose, [ _ | _] = left}, right) do
-    left_keys = Keyword.keys( left)
+    right = to_map( right)
 
-    merged =
-      Keyword.merge( left, to_list( right), &deep_resolve/3)
-      |> Keyword.reject( &dummy?( &1))
-      |> Keyword.reject( fn { k, _} -> k not in left_keys end)
+    right_taken =
+      Enum.reduce( left, [], fn { left_key, _} = left_kv, right_taken ->
+        cond do
+          Map.has_key?( right, left_key) ->
+            [ { left_key, right[ left_key]} | right_taken]
 
-    Enum.map( left_keys, &{ &1, merged[ &1]})
+          not dummy?( left_kv) ->
+            [ left_kv | right_taken]
+
+          true ->
+            right_taken
+        end
+      end)
+      |> Enum.reverse()
+
+    Keyword.merge( left, right_taken, &deep_resolve/3)
+    |> Keyword.reject( &dummy?( &1))
   end
 
   # rigid empty list replaced with another list
@@ -567,6 +578,7 @@ defmodule Extructure do
   defp dummy?( { _, _}), do: false
 
   # Transforms keyword list or tuple into map
+  defp to_map( %{ __struct__: _} = map), do: Map.from_struct( map)
   defp to_map( %{} = map), do: map
   defp to_map( kw) when is_list( kw), do: Map.new( kw)
   defp to_map( tuple) when is_tuple( tuple), do: to_list( tuple) |> Map.new()
