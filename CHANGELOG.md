@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.2.2 (2023-04-16)
+
+#### Bug fixes
+
+- Fix the flaw with a list or a tuple not failing when non optional variables are missing. The following used to pass
+  but now fails as supposed to:
+
+  ```elixir
+  [ a ] <~ [ b: 1]
+  # => MatchError
+  ```
+
+- Fix the flaw with rigid list and tuple not supporting unnamed underscore variables.
+
+  ```elixir
+  [ x: ^{ a, _, _, d}] <~ %{ x: { 1, 2, 3, 4}}
+  # => [x: {1, 2, 3, 4}]
+  # a
+  # => 1
+  # d
+  # => 4
+  ```
+
 ## v0.2.1 (2023-02-26)
 
 #### Enhancements
