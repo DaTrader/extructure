@@ -253,17 +253,25 @@ defmodule Extructure do
   end
 
   # standalone variable (without a key)
-  defp dig( { var_key, _, _} = variable, opts) when is_atom( var_key) do
+  defp dig( { var_key, context, _} = variable, opts) when is_atom( var_key) do
     cond do
       opts.pair_var ->
         interpret_var( {}, variable, opts)
+
+      opts.mode == :rigid and match?( { @dummy, _, _}, variable) ->
+        { variable, @dummy}
+
+      match?( { @dummy, _, _}, variable) ->
+        Logger.warn "Unnamed underscore variable makes no sense in a loose match: #{ inspect( context)}"
 
       optional_variable?( variable) ->
         raise_on_no_optional( variable, opts)
         variable = trim_underscore( variable)
 
         if opts.mode == :rigid do
-          Logger.warn( "Optional variable #{ Macro.to_string( variable)} makes no sense in a rigid match.")
+          Logger.warn(
+            "Optional variable #{ Macro.to_string( variable)} makes no sense in a rigid match: #{ inspect( context)}"
+          )
         end
 
         { variable, @dummy}

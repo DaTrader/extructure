@@ -477,4 +477,24 @@ defmodule ExtructureTest do
       assert a == nil
     end
   end
+
+  test "pattern match rigid list with underscore variable" do
+    ^[ a, _, _, d] <~ [ 1, 2, 3, 4]
+    assert a == 1
+    assert d == 4
+  end
+
+  test "pattern match rigid tuple with underscore variable" do
+    ^{ a, _, _, d} <~ { 1, 2, 3, 4}
+    assert a == 1
+    assert d == 4
+  end
+
+  test "pattern match rigid tuple with the underscore variable within a loose structure" do
+    [ a, _b, c: ^{ _, e}, f: f] <~ %{ a: 1, c: { 4, 5}, f: 6}
+    assert a == 1
+    assert b == nil
+    assert e == 5
+    assert f == 6
+  end
 end
