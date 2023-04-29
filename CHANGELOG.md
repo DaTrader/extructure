@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.3.0 (2023-04-29)
+
+#### Enhancements
+
+- Enable map destructuring as a whole even with a subset of keys specified
+
+  When in loose mode we can typically use maps, lists and tuples interchangeably. However, to circumvent a problem that
+  cannot be solved without completely redesigning the library (and making its execution much slower), an exception has
+  been introduced in this version.
+  
+  The problem is related to the fact that the library is ultimately relying on pattern matching to associate values
+  in a structure on the right (available only at runtime) with the variables on the left side (available for
+  manipulation at compile time only). 
+  
+  To illustrate the problem, consider what the two statements below translate into:
+  
+  ```elixir
+  [ a: a = %{ b}] <~ term
+  # translates into:
+  [ a: a = %{ b: b}] = adjusted_term
+   ```
+  
+  while
+  
+  ```elixir
+  [ a: a = [ b]] <~ term
+  # translates into:
+  [ a: a = [ b: b]] = adjusted_term
+  ```
+  
+  The former automatically associates an entire structure in `term` with the variable `a`, not just its subset with the
+  variable `b` only, while the latter associates the keyword list with just the `b` key (note: the Extructure logic
+  drops all key-value pairs except for the `b` in runtime so the pattern matching does not fail). 
+  
+  In previous versions the logic used to drop all undeclared keys from the maps as well in order to enforce a behavioral
+  similarity with lists and tuples, but this approach came with a tradeoff - not being able to destructure botth the
+  structure as a whole and some of its elements in a single statement. This is why this restriction has been removed
+  in the v0.3.0.
+  
+#### Bug fixes
+  
+- Destructure module structure as a whole as the module structure (not as a plain map). 
+ 
 ## v0.2.2 (2023-04-16)
 
 #### Bug fixes

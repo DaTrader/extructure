@@ -190,7 +190,7 @@ assert d == 4
 assert e == 5
 ```
 
-#### Transforming an entire structure
+#### Transforming the entire structure
 
 When in need to extract and transform an entire structure and not just some of its elements, all it takes is specifying
 an empty target structure (similar to `Enum.into/2`, but consistent with the Extructure syntax, so that nesting is
@@ -198,16 +198,37 @@ supported along with any other destructuring variables).
 
 Ex:  
 
-  ```elixir
-  [ a: a = %{}] <~ [ a: [ b: 2, c: 3]]
-  # a
-  # => %{ b: 2, c: 3}
-  ``` 
-  or
-  ```elixir
-  a = [] <~ %{ b: 2, c: 3}
-  # => [ b: 2, c: 3]
-  ```
+```elixir
+[ a: a = []] <~ [ a: [ b: 2, c: 3]]
+# a
+# => %{ b: 2, c: 3}
+``` 
+or
+```elixir
+a = [] <~ %{ b: 2, c: 3}
+# => [ b: 2, c: 3]
+```
+
+#### An exceptional treatment of maps
+
+Unlike with lists and tuples, with maps the entire structure is transformed and associated with the corresponding
+variable even if there's only a subset of its variables getting destructured.
+
+Ex with destructuring into a map:
+
+```elixir
+[ a: a = %{ b}] <~ [ a: [ b: 2, c: 3]]
+# a => %{ b: 2, c: 3}
+# b => 2
+``` 
+
+Ex with destructuring into a list (same for tuples):
+
+```elixir
+[ a: a = [ b]] <~ [ a: [ b: 2, c: 3]]
+# a => [ b: 2]
+# b => 2
+```
 
 ## Limitations
 

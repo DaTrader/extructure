@@ -480,6 +480,12 @@ defmodule ExtructureTest do
     assert b == 6
   end
 
+  test "destructure from a module structure and the structure itself" do
+    [ x: x = %{ b}] <~ [ x: %Foo{ a: 1, b: 2}]
+    assert b == 2
+    assert x == %Foo{ a: 1, b: 2}
+  end
+
   test "fail missing non optional variables in loose list" do
     assert_raise MatchError, fn ->
       [ a] <~ [ b: 1]

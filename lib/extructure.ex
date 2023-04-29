@@ -444,7 +444,17 @@ defmodule Extructure do
   # loose list
   def deep_merge( { :loose, []}, right), do: to_list( right)
   def deep_merge( { :loose, [ _ | _] = left}, right) do
-    right = to_map( right)
+    right =
+      cond do
+        !is_map( right) ->
+          to_map( right)
+
+        is_struct( right) ->
+          Map.from_struct( right)
+
+        true ->
+          right
+      end
 
     right_taken =
       Enum.reduce( left, [], fn { left_key, _} = left_kv, right_taken ->
@@ -586,7 +596,6 @@ defmodule Extructure do
   defp dummy?( { _, _}), do: false
 
   # Transforms keyword list or tuple into map
-  defp to_map( %{ __struct__: _} = map), do: Map.from_struct( map)
   defp to_map( %{} = map), do: map
   defp to_map( kw) when is_list( kw), do: Map.new( kw)
   defp to_map( tuple) when is_tuple( tuple), do: to_list( tuple) |> Map.new()
