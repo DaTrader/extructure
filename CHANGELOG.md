@@ -35,7 +35,7 @@
   drops all key-value pairs except for the `b` in runtime so the pattern matching does not fail). 
   
   In previous versions the logic used to drop all undeclared keys from the maps as well in order to enforce a behavioral
-  similarity with lists and tuples, but this approach came with a tradeoff - not being able to destructure botth the
+  similarity with lists and tuples, but this approach came with a tradeoff - not being able to destructure both the
   structure as a whole and some of its elements in a single statement. This is why this restriction has been removed
   in the v0.3.0.
   
