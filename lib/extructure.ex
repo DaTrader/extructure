@@ -420,7 +420,7 @@ defmodule Extructure do
   def deep_merge( { mode, %{} = left}, right) when is_mode( mode) do
     right = mode == :loose && to_map( right) || right
 
-    Map.merge( left, Map.take( right, Map.keys( left)), &deep_resolve/3)
+    Map.merge( left, right, &deep_resolve/3)
     |> Map.reject( &dummy?( &1))
   end
 

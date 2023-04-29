@@ -401,6 +401,16 @@ defmodule ExtructureTest do
     assert a == %{ d: 4, e: 5}
   end
 
+  test "loose non-empty map: transform whole structure ONLY if map" do
+    [ a: a = %{ b}] <~ [ a: [ b: 2, c: 3]]
+    assert a == %{ b: 2, c: 3}
+    assert b == 2
+
+    a = %{ e} <~ [ d: 4, e: 5]
+    assert a == %{ d: 4, e: 5}
+    assert e == 5
+  end
+
   test "loose empty list: transform whole structure into a keyword list" do
     [ a: a = []] <~ [ a: %{ b: 2, c: 3}]
     assert a == [ b: 2, c: 3]
@@ -420,6 +430,12 @@ defmodule ExtructureTest do
   test "rigid empty map: take whole structure if map" do
     [ a: a = ^%{}] <~ [ a: %{ b: 2}]
     assert a == %{ b: 2}
+  end
+
+  test "rigid non-empty map: take whole structure ONLY if map" do
+    [ a: a = ^%{ b}] <~ [ a: %{ b: 2, c: 3}]
+    assert a == %{ b: 2, c: 3}
+    assert b == 2
   end
 
   test "rigid empty map: fail if not a map" do
