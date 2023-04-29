@@ -14,7 +14,7 @@ Optional variables are also supported with or without a default value.
 ```elixir
 def deps do
   [
-    { :extructure, "~> 0.2.0"}
+    { :extructure, "~> 0.3.0"}
   ]
 end
 ```
