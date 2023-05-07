@@ -230,6 +230,51 @@ Ex with destructuring into a list (same for tuples):
 # b => 2
 ```
 
+#### String keys
+
+In addition to atom keys, Extructure supports destructuring from maps, key-value pair lists and key-value pair tuples
+with string keys. This feature is useful in such use cases as destructuring JSON properties or params in LiveView.  
+
+All it takes is to prefix the intended part of the expression on the left with a `@` character, e.g.:
+
+```elixir
+@[ a] <~ %{ "a" => 1}
+# a => 1
+```  
+
+Just like `^` can be used in nested structures to toggle from loose to rigid mode and back, `@` can be used to toggle
+from atom to string keys and back, e.g.:
+   
+```elixir
+@[ a, b: [ c, d: @[ e]]] <~ %{ "a" => 1, "b" => %{ "c" => 3, "d" => [ e: 5]}}
+# a => 1
+# c => 3
+# e => 5 
+```
+
+All matching restrictions apply same as with atom keys. Therefore, missing non-optional variables will result in failure
+while missing optional variables will not.
+
+```elixir
+@[ a] <~ %{ "b" => 2}
+# => MatchError
+
+@[ a( 1)] <~ %{ "b" => 2}
+# a => 1
+```
+
+Key type toggling can be used in combination with mode toggling when needed, e.g.:
+
+```elixir
+@^%{ a} <~ %{ "a" => 1}
+# => a = 1
+``` 
+
+```elixir
+@^%{ a} <~ [ { "a", 1}]
+# => BadMapError
+```
+
 ## Limitations
 
 #### Optional variables and default values

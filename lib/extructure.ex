@@ -2,10 +2,9 @@ defmodule Extructure do
   @moduledoc """
   Implementation of the `<~` extructure operator.
   """
-  alias Extructure.DigOpts
+  alias Extructure.{ DigOpts, Keylist}
   require Logger
 
-  @typep mode() :: :loose | :rigid
   @typep head_tail() :: maybe_improper_list()
 
   @typep input() ::
@@ -19,6 +18,8 @@ defmodule Extructure do
   @typep metadata() :: keyword()
   @typep input_expr() :: { input_expr() | atom(), metadata(), atom() | [ input()]}
   @typep dummy() :: :_
+  @typep mode() :: DigOpts.mode()
+  @typep key() :: atom() | String.t()
 
   @dummy :_
 
@@ -125,7 +126,8 @@ defmodule Extructure do
       DigOpts.new(
         mode: :loose,
         pair_var: false,
-        one_off: []
+        one_off: [],
+        key_type: :atom
       )
       |> DigOpts.one_off( var_optionality: "Can't use optional variable outside of an Extructure match.")
 
@@ -252,11 +254,22 @@ defmodule Extructure do
     dig( arg, opts)
   end
 
+  # toggles atom/string key matching on and off
+  defp dig( { :@, _context, args}, opts) do
+    opts =
+      opts
+      |> DigOpts.pair_var( true)
+      |> DigOpts.toggle_key_type()
+
+    [ arg] = args
+    dig( arg, opts)
+  end
+
   # standalone variable (without a key)
   defp dig( { var_key, context, _} = variable, opts) when is_atom( var_key) do
     cond do
       opts.pair_var ->
-        interpret_var( {}, variable, opts)
+        interpret_var( {}, variable, opts) |> adjust_key_type( opts)
 
       opts.mode == :rigid and match?( { @dummy, _, _}, variable) ->
         { variable, @dummy}
@@ -301,11 +314,18 @@ defmodule Extructure do
       { _, { term, merger}} ->
         { { key, term}, { key, merger}}
     end
+    |> adjust_key_type( opts)
   end
 
   # everything else
   defp dig( other, _opts) do
     { other, @dummy}
+  end
+
+  defp adjust_key_type( { key, _} = key_term, %{ key_type: :atom}) when is_atom( key), do: key_term
+  defp adjust_key_type( { key, term}, %{ key_type: :string}) when is_atom( key), do: { to_string( key), term}
+  defp adjust_key_type( { { _, _} = key_term, { _, _} = key_merger}, opts) do
+    { adjust_key_type( key_term, opts), adjust_key_type( key_merger, opts)}
   end
 
   # Applies the args creation and merger creation functions to each individual
@@ -335,8 +355,8 @@ defmodule Extructure do
   # Since nil is a valid key, we use a key holding tuple that can have
   # 0 or 1 elements.
   @spec interpret_var( {} | { atom()}, tuple(), DigOpts.t()) ::
-          { { atom(), tuple()}, { atom(), dummy()}} |
-          { { atom(), tuple()}, { atom(), any()}}
+          { { key(), tuple()}, { key(), dummy()}} |
+          { { key(), tuple()}, { key(), any()}}
   defp interpret_var( key_holder, variable, opts) do
     case { key_holder, variable_with_value( variable, opts)} do
       { {}, { { var_key, _, _} = variable, default_value}} ->
@@ -403,8 +423,10 @@ defmodule Extructure do
   end
 
   defguard is_mode( mode) when mode in [ :loose, :rigid]
+  defguard is_key( key) when is_atom( key) or is_bitstring( key)
 
-  # Deep-merges a map, Keyword or a tuple on the right into a map, Keyword or tuple on the left.
+  # Deep-merges a map, a list of kv pairs or a tuple on the right into a map, a list of kv
+  # pairs or a tuple on the left.
   # If the mode is loose, the right side structure is merged loosely into the left structure,
   # while if it is rigid, it is merged according to the Elixir matching rules.
   # Note: when merging without a mode on the left, it means, its a default value.
@@ -412,7 +434,7 @@ defmodule Extructure do
   @spec deep_merge( { mode(), type_left} | type_left, type_right) :: type_left | no_return()
         when type_left: type,
              type_right: type,
-             type: map() | keyword() | tuple()
+             type: map() | list() | tuple()
 
   # loose or rigid map
   def deep_merge( { :loose, %{} = left}, right) when map_size( left) == 0, do: to_map( right)
@@ -471,8 +493,8 @@ defmodule Extructure do
       end)
       |> Enum.reverse()
 
-    Keyword.merge( left, right_taken, &deep_resolve/3)
-    |> Keyword.reject( &dummy?( &1))
+    Keylist.merge( left, right_taken, &deep_resolve/3)
+    |> Keylist.reject( &dummy?( &1))
   end
 
   # rigid empty list replaced with another list
@@ -532,14 +554,14 @@ defmodule Extructure do
   @spec merge_head_tail( { mode(), head_tail()}, term()) :: list()
 
   # loose [ key-pair head | any tail]
-  defp merge_head_tail( { :loose, [ { k, _} = head | @dummy]}, right) when is_atom( k) do
+  defp merge_head_tail( { :loose, [ { k, _} = head | @dummy]}, right) when is_key( k) do
     [ head] = deep_merge( { :loose, [ head]}, right)
     tail = delete_pair( right, head)
     [ head | to_list( tail)]
   end
 
   # loose [ key-pair head | term or a merger structure tail]
-  defp merge_head_tail( { :loose, [ { k, _} = head | tail]}, right) when is_atom( k) do
+  defp merge_head_tail( { :loose, [ { k, _} = head | tail]}, right) when is_key( k) do
     [ head] = deep_merge( { :loose, [ head]}, right)
     tail = deep_merge( tail, delete_pair( right, head))
     [ head | tail]
@@ -581,7 +603,7 @@ defmodule Extructure do
 
   # Merge recursively both left and right side values are structures,
   # otherwise return the right side value.
-  @spec deep_resolve( atom(), any(), any()) :: any()
+  @spec deep_resolve( key(), any(), any()) :: any()
   defp deep_resolve( key \\ nil, left, right)
   defp deep_resolve( _key, left, right)
        when ( is_map( left) or is_list( left) or is_tuple( left)) and
@@ -600,12 +622,12 @@ defmodule Extructure do
   defp to_map( kw) when is_list( kw), do: Map.new( kw)
   defp to_map( tuple) when is_tuple( tuple), do: to_list( tuple) |> Map.new()
 
-  # Transforms map or tuple into keyword list.
+  # Transforms map or tuple into a list of kv pairs.
   defp to_list( kw) when is_list( kw), do: kw
   defp to_list( %{ __struct__: module} = struct) do
     [ __struct__: module] ++ to_list( Map.from_struct( struct))
   end
-  defp to_list( %{} = map), do: Keyword.new( map)
+  defp to_list( %{} = map), do: Enum.into( map, [])
   defp to_list( tuple) when is_tuple( tuple), do: Tuple.to_list( tuple)
 
   # Deletes key pair from a structure

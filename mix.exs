@@ -6,7 +6,7 @@ defmodule Extructure.MixProject do
   def project do
     [
       app: :extructure,
-      version: "0.3.0",
+      version: "0.3.1",
       elixir: "~> 1.13",
       elixirc_paths: elixirc_paths( Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -19,7 +19,7 @@ defmodule Extructure.MixProject do
       source_url: @source_url,
       docs: [
         main: "Extructure", # The main page in the docs
-        extras: [ "README.md"]
+        extras: [ "README.md", "CHANGELOG.md"]
       ]
     ]
   end

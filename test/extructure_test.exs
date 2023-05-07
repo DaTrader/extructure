@@ -519,4 +519,39 @@ defmodule ExtructureTest do
     assert e == 5
     assert f == 6
   end
+
+  test "unspecified string keys" do
+    @[ a] <~ %{ "a" => "1"}
+    assert a == "1"
+  end
+
+  test "specified string key" do
+    @[ x: a] <~ %{ "x" => "1"}
+    assert a == "1"
+  end
+
+  test "atom/string key combo" do
+    [ a: a = @%{ b, c: @[ d, e]}] <~ %{ a: [ { "b", "2"}, { "c", %{ d: 4, e: 5}}]}
+    assert a == %{ "b" => "2", "c" => [ d: 4, e: 5]}
+    assert b == "2"
+    assert d == 4
+    assert e == 5
+  end
+
+  test "string key in rigid mode" do
+    @^%{ b} <~ %{ "b" => 2}
+    assert b == 2
+  end
+
+  test "string key with a default value in rigid mode" do
+    @^%{ a( 1)} <~ %{ "b" => 2}
+    assert a == 1
+  end
+
+  test "fails string key in rigid mode when different structure type" do
+    assert_raise BadMapError, fn ->
+      @^%{ a( 1)} <~ [ { "b", 2}]
+      assert a == 1
+    end
+  end
 end

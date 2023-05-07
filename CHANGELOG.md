@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.1 (2023-05-07)
+
+#### Enhancements
+
+- Add support for string keys, e.g.:
+
+  ```elixir
+  @[ a, b, _c] <~ %{
+    "a" => 1,
+    "b" => 2
+  }
+  # a => 1
+  # b => 2
+  # c => nil
+  ```
+
 ## v0.3.0 (2023-04-29)
 
 #### Enhancements
