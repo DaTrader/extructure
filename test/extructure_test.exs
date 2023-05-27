@@ -253,7 +253,7 @@ defmodule ExtructureTest do
   end
 
   test "fail rigid map from list" do
-    assert_raise BadMapError, fn ->
+    assert_raise MatchError, fn ->
       ^%{ a, b} <~ [ a: 1, b: 2]
       assert a == 1
       assert b == 2
@@ -261,7 +261,7 @@ defmodule ExtructureTest do
   end
 
   test "fail rigid map from tuple of pairs" do
-    assert_raise BadMapError, fn ->
+    assert_raise MatchError, fn ->
       ^%{ a, b} <~ { { :a, 1}, { :b, 2}}
       assert a == 1
       assert b == 2
@@ -304,7 +304,7 @@ defmodule ExtructureTest do
   end
 
   test "fail loose tuple from standard tuple" do
-    assert_raise ArgumentError, fn ->
+    assert_raise MatchError, fn ->
       { a, b} <~ { 1, 2}
       assert a == 1
       assert b == 2
@@ -352,7 +352,7 @@ defmodule ExtructureTest do
   end
 
   test "fail non-keyword list on the right side" do
-    assert_raise ArgumentError, fn ->
+    assert_raise MatchError, fn ->
       [ %{ a} | %{ c, d}] <~ [ [ a: 1], %{ c: 3, d: 4}]
       assert a == 1
       assert c == 3
@@ -439,7 +439,7 @@ defmodule ExtructureTest do
   end
 
   test "rigid empty map: fail if not a map" do
-    assert_raise BadMapError, fn ->
+    assert_raise MatchError, fn ->
       [ a: ^%{}] <~ [ a: [ b: 2]]
     end
   end
@@ -549,7 +549,7 @@ defmodule ExtructureTest do
   end
 
   test "fails string key in rigid mode when different structure type" do
-    assert_raise BadMapError, fn ->
+    assert_raise MatchError, fn ->
       @^%{ a( 1)} <~ [ { "b", 2}]
       assert a == 1
     end

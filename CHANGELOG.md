@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.0 (2023-05-27)
+
+#### Enhancements
+
+- Rescue and reraise BadMapError and ArgumentError as MatchError for error consistency when destructuring. 
+
 ## v0.3.1 (2023-05-07)
 
 #### Enhancements

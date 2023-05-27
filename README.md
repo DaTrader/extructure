@@ -14,7 +14,7 @@ Optional variables are also supported with or without a default value.
 ```elixir
 def deps do
   [
-    { :extructure, "~> 0.3.0"}
+    { :extructure, "~> 1.0.0"}
   ]
 end
 ```
@@ -257,7 +257,7 @@ while missing optional variables will not.
 
 ```elixir
 @[ a] <~ %{ "b" => 2}
-# => MatchError
+# => error
 
 @[ a( 1)] <~ %{ "b" => 2}
 # a => 1
@@ -272,7 +272,7 @@ Key type toggling can be used in combination with mode toggling when needed, e.g
 
 ```elixir
 @^%{ a} <~ [ { "a", 1}]
-# => BadMapError
+# => error
 ```
 
 ## Limitations

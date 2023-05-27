@@ -139,8 +139,28 @@ defmodule Extructure do
 
       { _, { term, merger}} ->
         quote do
-          unquote( term) = Extructure.deep_merge( unquote( merger), unquote( right))
+          unquote( term) = Extructure.wrap_deep_merge( unquote( merger), unquote( right))
         end
+    end
+  end
+
+  # Reraises BadMapError, ArgumentError as a MatchError to achieve
+  # error consistency in destructuring.
+  #
+  # For spec see `deep_merge/2`.
+  @doc false
+  def wrap_deep_merge( merger, right) do
+    try do
+      Extructure.deep_merge( merger, right)
+    rescue
+      e in MatchError ->
+        reraise e, __STACKTRACE__
+
+      e in BadMapError ->
+        reraise %MatchError{ term: e.term}, __STACKTRACE__
+
+      ArgumentError ->
+        reraise %MatchError{ term: right}, __STACKTRACE__
     end
   end
 
