@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0 (2026-01-22)
+
+#### Compatibility fixes
+
+- Adjust tests to account for unpredictable order of map keys (OTP 26+)
+- Replace deprecated Logger.warn/1 with Logger.warning/1
+- Replace deprecated List.zip/1 with Enum.zip/1
+
 ## v1.0.0 (2023-05-27)
 
 #### Enhancements
