@@ -295,14 +295,14 @@ defmodule Extructure do
         { variable, @dummy}
 
       match?( { @dummy, _, _}, variable) ->
-        Logger.warn "Unnamed underscore variable makes no sense in a loose match: #{ inspect( context)}"
+        Logger.warning "Unnamed underscore variable makes no sense in a loose match: #{ inspect( context)}"
 
       optional_variable?( variable) ->
         raise_on_no_optional( variable, opts)
         variable = trim_underscore( variable)
 
         if opts.mode == :rigid do
-          Logger.warn(
+          Logger.warning(
             "Optional variable #{ Macro.to_string( variable)} makes no sense in a rigid match: #{ inspect( context)}"
           )
         end
@@ -524,7 +524,7 @@ defmodule Extructure do
   def deep_merge( { :rigid, [ _ | _] = left}, [ _ | _] = right) do
     if length( left) == length( right) do
       [ left, right]
-      |> List.zip()
+      |> Enum.zip()
       |> Enum.map( fn { left, right} ->
         deep_resolve( left, right)
       end)
@@ -554,7 +554,7 @@ defmodule Extructure do
            and tuple_size( left) == tuple_size( right)
     do
     [ Tuple.to_list( left), Tuple.to_list( right)]
-    |> List.zip()
+    |> Enum.zip()
     |> Enum.map( fn { left, right} ->
       deep_resolve( left, right)
     end)
