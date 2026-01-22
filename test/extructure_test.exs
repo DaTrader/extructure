@@ -413,7 +413,7 @@ defmodule ExtructureTest do
 
   test "loose empty list: transform whole structure into a keyword list" do
     [ a: a = []] <~ [ a: %{ b: 2, c: 3}]
-    assert a == [ b: 2, c: 3]
+    assert a == [ b: 2, c: 3] || a == [ c: 3, b: 2]
 
     a = [] <~ %{ d: 4, e: 5}
     assert a == [ d: 4, e: 5]
@@ -421,7 +421,7 @@ defmodule ExtructureTest do
 
   test "loose empty tuple: transform whole structure into a tuple of key pairs" do
     [ a: a = {}] <~ [ a: %{ b: 2, c: 3}]
-    assert a == { { :b, 2}, { :c, 3}}
+    assert a == {{ :b, 2}, { :c, 3}} || a == {{ :c, 3}, { :b, 2}}
 
     a = {} <~ [ d: 4, e: 5]
     assert a == { { :d, 4}, { :e, 5}}
