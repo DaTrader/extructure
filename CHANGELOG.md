@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.1.2 (2026-04-25)
+
+#### Bug fixes
+
+- Allow destructuring `:__struct__` from a struct via list LHS. Previously the
+  loose `[ _ | _]` deep-merge path stripped `__struct__` via `Map.from_struct/1`
+  before lookup, so `[ __struct__: module] <~ some_struct` silently failed with
+  a `MatchError`. The struct now flows through unchanged — Elixir structs
+  already behave like maps for `Map.has_key?/2` and `Map.fetch!/2`, so the same
+  field lookup works uniformly. This restores the behavior the implementation
+  had before the loose-list rewrite in v0.3.0, and aligns with how Elixir's own
+  pattern matching treats `__struct__` (`%{ __struct__: m} = some_struct`).
+
+  ```elixir
+  # previously raised MatchError; now correctly binds module == Date
+  [ __struct__: module] <~ Date.utc_today()
+  ```
+
 ## v1.1.1 (2026-04-25)
 
 #### Bug fixes

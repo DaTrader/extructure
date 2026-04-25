@@ -625,4 +625,16 @@ defmodule ExtructureTest do
     assert a == :_
     assert b == 2
   end
+
+  test "destructure :__struct__ key from a struct via list LHS" do
+    [ __struct__: module] <~ %Foo{ a: 1, b: 2}
+    assert module == Foo
+  end
+
+  test "destructure :__struct__ alongside other fields via list LHS" do
+    [ a, b, __struct__: module] <~ %Foo{ a: 1, b: 2}
+    assert a == 1
+    assert b == 2
+    assert module == Foo
+  end
 end

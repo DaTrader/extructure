@@ -495,22 +495,17 @@ defmodule Extructure do
   def deep_merge( { :loose, []}, right), do: to_list( right)
   def deep_merge( { :loose, [ _ | _] = left}, right) do
     right =
-      cond do
-        !is_map( right) ->
-          to_map( right)
-
-        is_struct( right) ->
-          Map.from_struct( right)
-
-        true ->
-          right
+      if is_map( right) do
+        right
+      else
+        to_map( right)
       end
 
     right_taken =
       Enum.reduce( left, [], fn { left_key, _} = left_kv, right_taken ->
         cond do
           Map.has_key?( right, left_key) ->
-            [ { left_key, right[ left_key]} | right_taken]
+            [{ left_key, Map.fetch!( right, left_key)} | right_taken]
 
           not dummy?( left_kv) ->
             [ left_kv | right_taken]
