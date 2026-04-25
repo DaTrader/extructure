@@ -2,8 +2,8 @@
 
 Extructure is a flexible destructure library for Elixir.
 
-By default the library is using loose (flexible) matching, allowing for implicit structural conversions (maps, lists and
-tuples, from one to another). The key-pair element order in a tuple or a list is also taken loosely by default.   
+By default, the library uses loose (flexible) matching, allowing for implicit structural conversions between maps, lists,
+and tuples. The order of key-pair elements in a tuple or list is also taken loosely by default.   
 
 Toggling from loose to Elixir-default ("rigid") mode is done via the `^` operator.
 
@@ -14,7 +14,7 @@ Optional variables are also supported with or without a default value.
 ```elixir
 def deps do
   [
-    { :extructure, "~> 1.0.0"}
+    { :extructure, "~> 1.2"}
   ]
 end
 ```
@@ -37,12 +37,12 @@ The docs can be found at [HexDocs](https://hexdocs.pm/extructure).
 
 #### Fetching two mandatory variables and one optional from the LiveView assigns
 
-Assuming a map of socket assigns, a standard pattern matching followed by retrieving an optional variable is shown
+Assuming a map of socket assigns, standard pattern matching followed by retrieving an optional variable is shown
 below:
 
 ```elixir
 %{
-  first_name: fist_name,
+  first_name: first_name,
   last_name: last_name,
 } = socket.assigns
 
@@ -57,7 +57,7 @@ is a one-liner in Extructure:
 
 #### Implicit transformation between maps, lists and tuples with key pairs
 
-Given the Extructure's loose treatment of structures in terms of their interchangeability, the former can be expressed
+Given Extructure's loose treatment of structures in terms of their interchangeability, the former can be expressed
 in a more readable manner: 
 
 ```elixir
@@ -72,7 +72,7 @@ or
 
 #### Default values
 
-An optional variable can be written as a function taking zero or one arguments, with a single argument being the default
+An optional variable can be written as a function taking zero or one argument, with the single argument being the default
 value, and/or as the variable name prefixed with a single underscore character `_`.
 
 ```elixir
@@ -90,24 +90,29 @@ or
 [ b, a] <~ [ a: 1, b: 2, c: 3]
 # => [ b: 2, a: 1]
 
-{ b, a} <~ { { :a, 1}, { :b, 2}, { :c, 3}}
-# => { { :b, 2}, { :a, 1}}
+{ b, a} <~ {{ :a, 1}, { :b, 2}, { :c, 3}}
+# => {{ :b, 2}, { :a, 1}}
 ```
 
 #### Flexible keyword list head | tail extraction
+
+Both single-element and multi-element heads are supported:
 
 ```elixir
 [ b | rest] <~ [ a: 1, b: 2, c: 3]
 # => [ b: 2, a: 1, c: 3]
 
+[ a, b | rest] <~ [ a: 1, b: 2, c: 3, d: 4]
+# => [ a: 1, b: 2, c: 3, d: 4]
+
 [ b | [ a, c]] <~ [ a: 1, b: 2, c: 3, d: 4]
 # => [ b: 2, a: 1, c: 3]
 
 [ a | [ b, c( 25)]] <~ %{ a: 1, b: 2}
-# => [a: 1, b: 2, c: 25]
+# => [ a: 1, b: 2, c: 25]
 
 [ b | %{ c: %{ d}}] <~ [ a: 1, b: 2, c: %{ d: 5}]
-# => [ { :b, 2} | %{ a: 1, c: %{ d: 5}}
+# => [{ :b, 2} | %{ a: 1, c: %{ d: 5}}]
 ```
 
 #### Fetching non-optional values
@@ -164,14 +169,14 @@ This is similar to destructuring from a map:
 
 ```elixir
 [ hour, minute, second] <~ DateTime.utc_now()
-# => [hour: 15, minute: 44, second: 14]
+# => [ hour: 15, minute: 44, second: 14]
 ``` 
 
 or with the module key:
 
 ```elixir
 [ __struct__: module] <~ DateTime.utc_now()
-# => [__struct__: DateTime]
+# => [ __struct__: DateTime]
 ```
 
 #### Nesting
@@ -179,7 +184,7 @@ or with the module key:
 Any level of nesting is supported, and with the `^` operator toggling from loose to rigid and vice versa, any matching
 combination can be achieved.
 
-Ex from the `extructure_test.ex`:
+Example from `extructure_test.exs`:
 
 ```elixir
 %{ a, b: b = ^{ c, d, ^%{ e}}} <~ [ a: 1, b: { 3, 4, [ e: 5]}]
@@ -192,7 +197,7 @@ assert e == 5
 
 #### Transforming the entire structure
 
-When in need to extract and transform an entire structure and not just some of its elements, all it takes is specifying
+When you need to extract and transform an entire structure and not just some of its elements, all it takes is specifying
 an empty target structure (similar to `Enum.into/2`, but consistent with the Extructure syntax, so that nesting is
 supported along with any other destructuring variables).
 
@@ -212,7 +217,7 @@ a = [] <~ %{ b: 2, c: 3}
 #### An exceptional treatment of maps
 
 Unlike with lists and tuples, with maps the entire structure is transformed and associated with the corresponding
-variable even if there's only a subset of its variables getting destructured.
+variable even if only a subset of its keys is being destructured.
 
 Ex with destructuring into a map:
 
@@ -232,8 +237,8 @@ Ex with destructuring into a list (same for tuples):
 
 #### String keys
 
-In addition to atom keys, Extructure supports destructuring from maps, key-value pair lists and key-value pair tuples
-with string keys. This feature is useful in such use cases as destructuring JSON properties or params in LiveView.  
+In addition to atom keys, Extructure supports destructuring from maps, key-value pair lists, and key-value pair tuples
+with string keys. This is useful in cases such as destructuring JSON properties or params in LiveView.  
 
 All it takes is to prefix the intended part of the expression on the left with a `@` character, e.g.:
 
@@ -242,7 +247,7 @@ All it takes is to prefix the intended part of the expression on the left with a
 # a => 1
 ```  
 
-Just like `^` can be used in nested structures to toggle from loose to rigid mode and back, `@` can be used to toggle
+Just as `^` can be used in nested structures to toggle from loose to rigid mode and back, `@` can be used to toggle
 from atom to string keys and back, e.g.:
    
 ```elixir
@@ -252,8 +257,8 @@ from atom to string keys and back, e.g.:
 # e => 5 
 ```
 
-All matching restrictions apply same as with atom keys. Therefore, missing non-optional variables will result in failure
-while missing optional variables will not.
+All matching restrictions apply the same as with atom keys. Therefore, missing non-optional variables will result in
+failure while missing optional variables will not.
 
 ```elixir
 @[ a] <~ %{ "b" => 2}
@@ -271,7 +276,7 @@ Key type toggling can be used in combination with mode toggling when needed, e.g
 ``` 
 
 ```elixir
-@^%{ a} <~ [ { "a", 1}]
+@^%{ a} <~ [{ "a", 1}]
 # => error
 ```
 
@@ -288,8 +293,8 @@ maps, but, as shown below, the Elixir parser does not support this expression in
 %{ a, b \\ nil} # syntax error
 ```
 
-So, decision was made that, until there's a progress with the Elixir parser, the underscore prefixed variable names will
-be used for optional variables defaulting to nil, and the function (macro) call syntax will be used for the optional
+So the decision was made that, until there's progress with the Elixir parser, the underscore-prefixed variable names
+will be used for optional variables defaulting to nil, and the function (macro) call syntax will be used for optional
 variables defaulting to nil or any other value, e.g.:
 
 ```elixir
@@ -304,19 +309,18 @@ The above syntax is used uniformly with all three types (maps, lists, tuples).
 The limitation that comes with this approach is that user-defined macro calls cannot be placed within the left-side
 expression.
 
-Should the Elixir core team decide to remove the parser restriction, a support for the standard Elixir optional
-variables (arguments) would be added and the present notation would be slowly phased out (leaving it to the
-compatibility mode).  
+Should the Elixir core team decide to remove the parser restriction, support for the standard Elixir optional
+variables (arguments) would be added and the present notation would be slowly phased out (left in for compatibility).  
 
 ## Formatting
 
-The source code formatting in this library diverges from the standard formatting practice based on using `mix format`
-in so much that there's a leading space character inserted before each initial argument / element with an intention to
-improve the code readability (subject to the author's personal perception).
+The source code formatting in this library diverges from the standard `mix format` practice in that there's a leading
+space character inserted before each initial argument / element, intended to improve readability (subject to the
+author's personal perception).
 
-Another detail diverging from the standard Elixir formatting is that, where present, multi-line function signatures,
-and multi-line `for`, `with`, `if`, etc. statements will not have the `do` at the end of the last of the lines but,
-instead, indented in a new line, e.g.:
+Another detail diverging from the standard Elixir formatting is that, where present, multi-line function signatures
+and multi-line `for`, `with`, `if`, etc. statements will not have the `do` at the end of the last line but, instead,
+indented on a new line, e.g.:
 
 ```elixir
 with { _, foo} <- get_foo( a, b, c),

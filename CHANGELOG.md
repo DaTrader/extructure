@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.0 (2026-04-25)
+
+#### Enhancements
+
+- Support multi-element head in loose head|tail destructuring. Previously
+  only the single-head form `[ a | rest]` worked; now any number of heads
+  may be specified before the `|`:
+
+  ```elixir
+  [ a, b | rest] <~ [ a: 1, b: 2, c: 3, d: 4]
+  # a => 1, b => 2, rest => [ c: 3, d: 4]
+
+  [ a, b, c | rest] <~ [ a: 1, b: 2, c: 3, d: 4, e: 5]
+  # a => 1, b => 2, c => 3, rest => [ d: 4, e: 5]
+  ```
+
+  Works with map and key-pair tuple right sides as well, and supports a
+  structured tail:
+
+  ```elixir
+  [ a, b | %{ c, d}] <~ [ a: 1, b: 2, c: 3, d: 4]
+  # a => 1, b => 2, c => 3, d => 4
+  ```
+
 ## v1.1.2 (2026-04-25)
 
 #### Bug fixes
