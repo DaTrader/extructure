@@ -554,4 +554,75 @@ defmodule ExtructureTest do
       assert a == 1
     end
   end
+
+  test ":_ value on the RHS binds to a non-optional map variable" do
+    %{ a, b} <~ %{ a: :_, b: 2}
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":_ value on the RHS binds to a non-optional list variable" do
+    [ a, b] <~ [ a: :_, b: 2]
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":_ value on the RHS binds to a tuple key-pair variable" do
+    { a, b} <~ { { :a, :_}, { :b, 2}}
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":_ value on the RHS overrides an optional variable's default" do
+    %{ _a( 99), b} <~ %{ a: :_, b: 2}
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":_ value on the RHS in a nested map" do
+    %{ a: %{ b}} <~ %{ a: %{ b: :_}}
+    assert b == :_
+  end
+
+  test ":_ value on the RHS in a head | tail loose match" do
+    [ a | rest] <~ [ a: :_, b: 2, c: 3]
+    assert a == :_
+    assert rest[ :b] == 2
+    assert rest[ :c] == 3
+  end
+
+  test ":_ value on the RHS in a rigid list" do
+    ^[ a, b] <~ [ :_, 2]
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":_ value on the RHS in a rigid tuple" do
+    ^{ a, b} <~ { :_, 2}
+    assert a == :_
+    assert b == 2
+  end
+
+  test ":loose value on the RHS passes through" do
+    %{ a, b} <~ %{ a: :loose, b: 2}
+    assert a == :loose
+    assert b == 2
+  end
+
+  test ":rigid value on the RHS passes through" do
+    %{ a, b} <~ %{ a: :rigid, b: 2}
+    assert a == :rigid
+    assert b == 2
+  end
+
+  test "{ :loose, _} 2-tuple value on the RHS binds intact when LHS is a sole var" do
+    %{ a} <~ %{ a: { :loose, %{ x: 1}}}
+    assert a == { :loose, %{ x: 1}}
+  end
+
+  test "string key with a :_ value passes through" do
+    @[ a, b] <~ %{ "a" => :_, "b" => 2}
+    assert a == :_
+    assert b == 2
+  end
 end

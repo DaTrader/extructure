@@ -17,11 +17,19 @@ defmodule Extructure do
 
   @typep metadata() :: keyword()
   @typep input_expr() :: { input_expr() | atom(), metadata(), atom() | [ input()]}
-  @typep dummy() :: :_
+  @typep dummy() :: { module(), :__dummy__}
   @typep mode() :: DigOpts.mode()
   @typep key() :: atom() | String.t()
 
-  @dummy :_
+  # Internal sentinel embedded in the merger structure to mark "no contribution
+  # from this position." Must be a value the user cannot reasonably collide
+  # with AND a valid AST literal (so it survives unquoting into the generated
+  # macro output). A 2-tuple of atoms qualifies on both counts.
+  @dummy { __MODULE__, :__dummy__}
+
+  # AST atom for the wildcard variable `_`. Used both to construct wildcard
+  # patterns in the generated left-side and to detect a source `_` variable.
+  @underscore_var :_
 
   @doc """
   Destructures the right hand side expression into and according to the
@@ -173,7 +181,7 @@ defmodule Extructure do
 
   # empty list (transform the entire structure)
   defp dig( [] = args, opts) do
-    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, & &1)
+    dig_args( args, opts.mode, opts, fn _ -> { @underscore_var, [], nil} end, & &1)
   end
 
   # list
@@ -188,7 +196,7 @@ defmodule Extructure do
 
   # empty map (transform the entire structure)
   defp dig( { :%{}, context, [] = args}, opts) do
-    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, &{ :%{}, context, &1})
+    dig_args( args, opts.mode, opts, fn _ -> { @underscore_var, [], nil} end, &{ :%{}, context, &1})
   end
 
   # map
@@ -203,7 +211,7 @@ defmodule Extructure do
 
   # empty tuple (transform the entire structure)
   defp dig( { :{}, context, [] = args}, opts) do
-    dig_args( args, opts.mode, opts, fn _ -> { @dummy, [], nil} end, &{ :{}, context, &1})
+    dig_args( args, opts.mode, opts, fn _ -> { @underscore_var, [], nil} end, &{ :{}, context, &1})
   end
 
   # tuple other than a tuple of 2
@@ -291,10 +299,10 @@ defmodule Extructure do
       opts.pair_var ->
         interpret_var( {}, variable, opts) |> adjust_key_type( opts)
 
-      opts.mode == :rigid and match?( { @dummy, _, _}, variable) ->
+      opts.mode == :rigid and match?( { @underscore_var, _, _}, variable) ->
         { variable, @dummy}
 
-      match?( { @dummy, _, _}, variable) ->
+      match?( { @underscore_var, _, _}, variable) ->
         Logger.warning "Unnamed underscore variable makes no sense in a loose match: #{ inspect( context)}"
 
       optional_variable?( variable) ->

@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.1.1 (2026-04-25)
+
+#### Bug fixes
+
+- Fix collision when the right-side data contains `:_` as a value. The internal
+  "no contribution" sentinel in the merger structure used to be the atom `:_`,
+  which is also a value the user might legitimately have in their data. As a
+  result, a key whose right-side value happened to be `:_` was incorrectly
+  dropped from the merged structure, causing a spurious `MatchError` (or, for
+  optional variables, the actual `:_` value being thrown away in favor of the
+  default). The sentinel is now a tagged 2-tuple that the user cannot
+  realistically collide with. The atoms `:loose` and `:rigid` were never
+  affected but are now covered by tests as well.
+
+  ```elixir
+  # previously raised MatchError; now correctly binds a == :_
+  %{ a, b} <~ %{ a: :_, b: 2}
+  ```
+
 ## v1.1.0 (2026-01-22)
 
 #### Compatibility fixes
