@@ -637,4 +637,45 @@ defmodule ExtructureTest do
     assert b == 2
     assert module == Foo
   end
+
+  test "loose multi-head [ a, b | rest]" do
+    [ a, b | rest] <~ [ a: 1, b: 2, c: 3, d: 4]
+    assert a == 1
+    assert b == 2
+    assert rest[ :c] == 3
+    assert rest[ :d] == 4
+  end
+
+  test "loose multi-head [ a, b, c | rest]" do
+    [ a, b, c | rest] <~ [ a: 1, b: 2, c: 3, d: 4, e: 5]
+    assert a == 1
+    assert b == 2
+    assert c == 3
+    assert rest[ :d] == 4
+    assert rest[ :e] == 5
+  end
+
+  test "loose multi-head with structured tail" do
+    [ a, b | %{ c, d}] <~ [ a: 1, b: 2, c: 3, d: 4]
+    assert a == 1
+    assert b == 2
+    assert c == 3
+    assert d == 4
+  end
+
+  test "loose multi-head from map" do
+    [ a, b | rest] <~ %{ a: 1, b: 2, c: 3, d: 4}
+    assert a == 1
+    assert b == 2
+    assert rest[ :c] == 3
+    assert rest[ :d] == 4
+  end
+
+  test "loose multi-head from key-pair tuple" do
+    [ a, b | rest] <~ {{ :a, 1}, { :b, 2}, { :c, 3}, { :d, 4}}
+    assert a == 1
+    assert b == 2
+    assert rest[ :c] == 3
+    assert rest[ :d] == 4
+  end
 end

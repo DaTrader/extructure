@@ -260,6 +260,9 @@ defmodule Extructure do
   end
 
   # list head | tail matching
+  # Note: producing a `:|` AST node here is what makes the resulting runtime
+  # merger an improper list. The loose `[_|_]` deep_merge clause relies on
+  # this invariant via `improper_list?/1` to detect head|tail mergers.
   defp dig( { :|, context, args}, opts) do
     opts = DigOpts.one_off( opts)
 
@@ -494,30 +497,34 @@ defmodule Extructure do
   # loose list
   def deep_merge( { :loose, []}, right), do: to_list( right)
   def deep_merge( { :loose, [ _ | _] = left}, right) do
-    right =
-      if is_map( right) do
-        right
-      else
-        to_map( right)
-      end
-
-    right_taken =
-      Enum.reduce( left, [], fn { left_key, _} = left_kv, right_taken ->
-        cond do
-          Map.has_key?( right, left_key) ->
-            [{ left_key, Map.fetch!( right, left_key)} | right_taken]
-
-          not dummy?( left_kv) ->
-            [ left_kv | right_taken]
-
-          true ->
-            right_taken
+    if improper_list?( left) do
+      merge_head_tail({ :loose, left}, right)
+    else
+      right =
+        if is_map( right) do
+          right
+        else
+          to_map( right)
         end
-      end)
-      |> Enum.reverse()
 
-    Keylist.merge( left, right_taken, &deep_resolve/3)
-    |> Keylist.reject( &dummy?( &1))
+      right_taken =
+        Enum.reduce( left, [], fn { left_key, _} = left_kv, right_taken ->
+          cond do
+            Map.has_key?( right, left_key) ->
+              [{ left_key, Map.fetch!( right, left_key)} | right_taken]
+
+            not dummy?( left_kv) ->
+              [ left_kv | right_taken]
+
+            true ->
+              right_taken
+          end
+        end)
+        |> Enum.reverse()
+
+      Keylist.merge( left, right_taken, &deep_resolve/3)
+      |> Keylist.reject( &dummy?( &1))
+    end
   end
 
   # rigid empty list replaced with another list
@@ -575,6 +582,14 @@ defmodule Extructure do
 
   # Merges any of the legit head | tail combinations
   @spec merge_head_tail( { mode(), head_tail()}, term()) :: list()
+
+  # loose multi-head [ key-pair head | tail beginning with another key-pair]
+  defp merge_head_tail({ :loose, [{ k, _} = head | [{ _, _} | _] = inner]}, right) when is_key( k) do
+    [ head] = deep_merge({ :loose, [ head]}, right)
+    remaining = delete_pair( right, head)
+    inner_result = merge_head_tail({ :loose, inner}, remaining)
+    [ head | inner_result]
+  end
 
   # loose [ key-pair head | any tail]
   defp merge_head_tail( { :loose, [ { k, _} = head | @dummy]}, right) when is_key( k) do
@@ -639,6 +654,15 @@ defmodule Extructure do
   # Verifies if a merger is a dummy.
   defp dummy?( { _, @dummy}), do: true
   defp dummy?( { _, _}), do: false
+
+  # Returns true if `list` does not end in []. Within this module, a merger
+  # value is an improper list iff the LHS contained a `:|` (head|tail)
+  # expression — see the `:|` clause of `dig/2`. The loose `[_|_]` deep_merge
+  # clause uses this fact to route head|tail mergers to `merge_head_tail/2`.
+  @spec improper_list?( term()) :: boolean()
+  defp improper_list?([ _ | tl]) when is_list( tl), do: improper_list?( tl)
+  defp improper_list?([ _ | _]), do: true
+  defp improper_list?( []), do: false
 
   # Transforms keyword list or tuple into map
   defp to_map( %{} = map), do: map
