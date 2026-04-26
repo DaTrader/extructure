@@ -1,9 +1,40 @@
 defmodule Extructure do
   @moduledoc """
   Implementation of the `<~` extructure operator.
+
+  The companion `Extructure.Shorthand` module provides `+/1` (shorthand-key
+  construction) and `-/1` (exact-type pattern matching).
+
+  ## Usage
+
+  Three ways to bring the operators into scope:
+
+      import Extructure              # just `<~`
+      use Extructure.Shorthand       # just `+/1` and `-/1`
+      use Extructure                 # all three — convenience
+
+  The split lets a project mix and match per module — for example, an umbrella
+  where one OTP app needs only `<~` while another wants the shorthand
+  operators too. No application config involved.
   """
   alias Extructure.{ DigOpts, Keylist}
   require Logger
+
+  @doc """
+  Convenience entry point that brings `<~`, `+/1`, and `-/1` into scope at
+  once. Equivalent to `import Extructure` plus `use Extructure.Shorthand`.
+
+  Use the granular forms (`import Extructure` or `use Extructure.Shorthand`)
+  when you only want one half — for instance when one of the shorthand
+  operators conflicts with another macro in scope.
+  """
+  @spec __using__( keyword()) :: Macro.t()
+  defmacro __using__( _opts) do
+    quote do
+      import Extructure
+      use Extructure.Shorthand
+    end
+  end
 
   @typep head_tail() :: maybe_improper_list()
 
