@@ -144,6 +144,73 @@ defmodule Extructure.ShorthandTest do
     rest = [ c: 3]
     assert +[ a, b | rest] == [ a: 1, b: 2, c: 3]
   end
+
+  test "+@%{ ...} constructs a map with string keys" do
+    a = 1
+    b = 2
+    assert +@%{ a, b} == %{ "a" => 1, "b" => 2}
+  end
+
+  test "+@%{ ...} mixes bare vars and kw-shorthand into string keys" do
+    a = 1
+    assert +@%{ a, b: 3} == %{ "a" => 1, "b" => 3}
+  end
+
+  test "+@[ ...] constructs a kv list with string keys" do
+    a = 1
+    b = 2
+    assert +@[ a, b] == [ { "a", 1}, { "b", 2}]
+  end
+
+  test "+@{ ...} constructs a tuple of string-keyed pairs" do
+    a = 1
+    b = 2
+    assert +@{ a, b} == {{ "a", 1}, { "b", 2}}
+  end
+
+  test "+@[ a | tail] head|tail construction with string keys" do
+    a = 1
+    rest = [ { "b", 2}, { "c", 3}]
+    assert +@[ a | rest] == [ { "a", 1}, { "b", 2}, { "c", 3}]
+  end
+
+  test "-@%{ ...} matches a map with string keys" do
+    -@%{ a, b} = %{ "a" => 1, "b" => 2}
+    assert a == 1
+    assert b == 2
+  end
+
+  test "-@%{ ...} with mixed bare and kw-shorthand pairs" do
+    -@%{ a, b: 3} = %{ "a" => 1, "b" => 3}
+    assert a == 1
+  end
+
+  test "-@[ ...] matches a kv list with string keys" do
+    -@[ a, b] = [ { "a", 1}, { "b", 2}]
+    assert a == 1
+    assert b == 2
+  end
+
+  test "-@{ ...} matches a tuple of string-keyed pairs" do
+    -@{ a, b} = {{ "a", 1}, { "b", 2}}
+    assert a == 1
+    assert b == 2
+  end
+
+  test "-@[ a | tail] head|tail with string keys" do
+    -@[ a | rest] = [ { "a", 1}, { "b", 2}, { "c", 3}]
+    assert a == 1
+    assert rest == [ { "b", 2}, { "c", 3}]
+  end
+
+  test "-@%{ ...} raises MatchError when key type doesn't match" do
+    rhs = %{ a: 1, b: 2}
+
+    assert_raise MatchError, fn ->
+      -@%{ a, b} = rhs
+      _ = { a, b}
+    end
+  end
 end
 
 defmodule Extructure.UnifiedUseTest do

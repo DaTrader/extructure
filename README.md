@@ -363,6 +363,32 @@ support. Use `<~` when those are needed.
 `-/1` falls through to `Kernel.-/1` for any argument shape that isn't a
 structure literal.
 
+#### String keys with `@`
+
+Prefix the literal with `@` to flip the immediate level to string keys,
+mirroring how `<~` uses `@`. Both bare variables and kw-shorthand pairs
+become string-keyed:
+
+```elixir
+a = 1
+b = 2
+
++@%{ a, b}                          # => %{ "a" => 1, "b" => 2}
++@[ a, b: 3]                        # => [ { "a", 1}, { "b", 3}]
++@{ a, b}                           # => {{ "a", 1}, { "b", 2}}
+
+-@%{ a, b} = %{ "a" => 1, "b" => 2}
+# a => 1, b => 2
+
+-@[ a, b] = [ { "a", 1}, { "b", 2}]
+# a => 1, b => 2
+```
+
+Unlike `<~`, where `@` propagates into the substructure, the shorthand
+`@` only flips the immediate level — the same scope as the bare-key
+shorthand itself. Apply `@` again at each level for nested string keys
+(`+@%{ a, b: +@%{ c}}`).
+
 #### Head | tail in `+/1` and `-/1`
 
 Bare-variable heads are expanded as shorthand pairs while the tail is

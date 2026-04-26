@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.3.1 (2026-04-26)
+
+#### Enhancements
+
+- Support `@`-prefix on `+/1` and `-/1` for string keys, mirroring how
+  `<~` uses `@` to toggle key type. Both bare-variable shorthand and
+  kw-shorthand pairs become string-keyed:
+
+  ```elixir
+  a = 1
+  b = 2
+  +@%{ a, b}                         # => %{ "a" => 1, "b" => 2}
+  +@[ a, b: 3]                       # => [ { "a", 1}, { "b", 3}]
+  +@{ a, b}                          # => {{ "a", 1}, { "b", 2}}
+
+  -@%{ a, b} = %{ "a" => 1, "b" => 2}
+  # a => 1, b => 2
+
+  -@[ a | rest] = [ { "a", 1}, { "b", 2}, { "c", 3}]
+  # a => 1, rest => [ { "b", 2}, { "c", 3}]
+  ```
+
+  Like the bare-key shorthand, `@` only flips the immediate level —
+  consistent with how `+/1` and `-/1` treat nested literals (`<~`
+  propagates `@` into nested substructures, but the shorthand operators
+  don't, since they don't recurse at all). Apply `@` again at each level
+  for nested string keys.
+
 ## v1.3.0 (2026-04-26)
 
 #### Enhancements
