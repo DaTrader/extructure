@@ -1,5 +1,74 @@
 # Changelog
 
+## v1.3.0 (2026-04-26)
+
+#### Enhancements
+
+- Add `Extructure.Shorthand` with `+/1` (shorthand-key construction) and
+  `-/1` (exact-type pattern matching) — the inverse and Elixir-strict
+  counterparts to `<~`. Bare variables inside `%{ ...}`, `[ ...]`, or
+  `{ ...}` literals are expanded to `{key, var}` pairs whose key is the
+  variable's name; explicit `key: value` pairs may be mixed in.
+
+  ```elixir
+  use Extructure.Shorthand
+
+  a = 1
+  b = 2
+  +%{ a, b}                      # => %{ a: 1, b: 2}
+  +[ a, b: 3]                    # => [ a: 1, b: 3]
+  +{ a, b}                       # => {{ :a, 1}, { :b, 2}}
+
+  -%{ a, b} = %{ a: 1, b: 2}     # a => 1, b => 2
+  -[ a, b] = [ a: 1, b: 2]       # a => 1, b => 2
+
+  def add(-%{ a, b}), do: a + b
+  ```
+
+  `use Extructure.Shorthand` removes `Kernel.+/1` and `Kernel.-/1` from
+  scope and imports the operators unambiguously. Both fall through to
+  the corresponding `Kernel` operator for any argument shape that isn't a
+  structure literal, so `+5` and `-x` keep their standard meaning.
+
+- Support head|tail patterns in `+/1` and `-/1`. Bare-variable heads are
+  expanded as shorthand pairs while the tail is left untouched:
+
+  ```elixir
+  -[ x | opts] = [ x: 1, y: 2]
+  # x => 1, opts => [ y: 2]
+
+  -[ a, b | rest] = [ a: 1, b: 2, c: 3, d: 4]
+  # a => 1, b => 2, rest => [ c: 3, d: 4]
+
+  x = 1
+  opts = [ y: 2, z: 3]
+  +[ x | opts]                   # => [ x: 1, y: 2, z: 3]
+  ```
+
+  Note: Elixir's parser rejects keyword shorthand before `|`, so explicit
+  pair heads must be written in tuple form: `-[{ :x, 1} | opts] = ...`.
+
+- Add `use Extructure` as a convenience entry point. Equivalent to
+  `import Extructure` plus `use Extructure.Shorthand`, so all three
+  operators (`<~`, `+/1`, `-/1`) come into scope at once. Use the
+  granular forms when only one half is wanted — for instance to avoid
+  clashes with another macro in scope, or in an umbrella where different
+  apps need different combinations.
+
+  ```elixir
+  defmodule UsesAll do
+    use Extructure              # `<~`, `+/1`, `-/1`
+  end
+
+  defmodule JustExtructure do
+    import Extructure           # only `<~`
+  end
+
+  defmodule JustShorthand do
+    use Extructure.Shorthand    # only `+/1` and `-/1`
+  end
+  ```
+
 ## v1.2.0 (2026-04-25)
 
 #### Enhancements

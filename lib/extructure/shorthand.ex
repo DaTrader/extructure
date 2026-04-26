@@ -26,6 +26,7 @@ defmodule Extructure.Shorthand do
   `Extructure.Shorthand` so the shorthand operators can be used
   unambiguously.
   """
+  @spec __using__( keyword()) :: Macro.t()
   defmacro __using__( _opts) do
     quote do
       import Kernel, except: [ +: 1, -: 1]
@@ -60,6 +61,7 @@ defmodule Extructure.Shorthand do
 
       +%{ a, b: +%{ c, d}}   # => %{ a: 1, b: %{ c: 3, d: 4}}
   """
+  @spec +(ast()) :: ast()
   defmacro +(arg) do
     case maybe_expand( arg) do
       { :ok, ast} ->
@@ -109,6 +111,7 @@ defmodule Extructure.Shorthand do
 
       -%{ a, b: -%{ c, d}} = %{ a: 1, b: %{ c: 3, d: 4}}
   """
+  @spec -(ast()) :: ast()
   defmacro -(arg) do
     case maybe_expand( arg) do
       { :ok, ast} ->
@@ -180,7 +183,7 @@ defmodule Extructure.Shorthand do
   # Walks a list AST element-by-element, expanding each "head" via
   # `expand_pair/1`. A trailing `:|` cons leaves its tail untouched so
   # `[ a, b | rest]` becomes `[ {:a, a}, {:b, b} | rest]`.
-  @spec expand_list( [ ast()]) :: [ ast()]
+  @spec expand_list([ ast()]) :: [ ast()]
   defp expand_list( ast)
 
   defp expand_list([{ :|, ctx, [ head, tail]}]) do

@@ -14,20 +14,36 @@ Optional variables are also supported with or without a default value.
 ```elixir
 def deps do
   [
-    { :extructure, "~> 1.2"}
+    { :extructure, "~> 1.3"}
   ]
 end
 ```
 
-Import the Extructure module in every module where you use it:
+There are three ways to bring the operators into scope, depending on
+which ones you need:
+
 ```elixir
 defmodule Foo do
-  # uses, aliases, and imports
-  import Extructure
-  
+  import Extructure          # only `<~`
+  # ..
+end
+
+defmodule Bar do
+  use Extructure.Shorthand   # only `+/1` and `-/1`
+  # ..
+end
+
+defmodule Baz do
+  use Extructure             # all three: `<~`, `+/1`, `-/1`
   # ..
 end
 ```
+
+`use Extructure` is the convenience form — equivalent to
+`import Extructure` plus `use Extructure.Shorthand`. Use the granular
+forms when only one half is wanted, for example to avoid clashes with
+another macro in scope, or in an umbrella where different apps need
+different combinations. No application config involved.
 
 ## Docs
 
@@ -279,6 +295,100 @@ Key type toggling can be used in combination with mode toggling when needed, e.g
 @^%{ a} <~ [{ "a", 1}]
 # => error
 ```
+
+## Shorthand operators
+
+The companion `Extructure.Shorthand` module provides two operators that
+complement `<~`:
+
+- `+/1` — constructs a structure literal from variables using
+  shorthand-key syntax. The construction direction.
+- `-/1` — pattern-matches a structure literal using shorthand-key
+  syntax. The Elixir-strict counterpart to `<~`, useful in function
+  heads and any other pattern position.
+
+Both operators are brought into scope via `use Extructure.Shorthand` (or
+`use Extructure` for the all-in-one).
+
+#### Construction with `+/1`
+
+Bare variables inside `%{ ...}`, `[ ...]`, or `{ ...}` are expanded to
+`{key, var}` pairs whose key is the variable's name. Explicit
+`key: value` pairs may be mixed in.
+
+```elixir
+a = 1
+b = 2
+
++%{ a, b}              # => %{ a: 1, b: 2}
++%{ a, b: 3}           # => %{ a: 1, b: 3}
++[ a, b]               # => [ a: 1, b: 2]
++{ a, b}               # => {{ :a, 1}, { :b, 2}}
+```
+
+`+/1` only transforms its immediate argument — nested literals pass
+through unchanged. To get shorthand keys at nested levels, apply `+`
+again at each level:
+
+```elixir
++%{ a, b: +%{ c, d}}   # => %{ a: 1, b: %{ c: 3, d: 4}}
+```
+
+`+/1` falls through to `Kernel.+/1` for any argument shape that isn't a
+structure literal, so `+5` and `+x` (where `x` is a number) keep their
+standard meaning.
+
+#### Pattern matching with `-/1`
+
+The pattern counterpart to `+/1`. Bare variables inside `%{ ...}`,
+`[ ...]`, or `{ ...}` are expanded to `{key, var}` patterns:
+
+```elixir
+-%{ a, b} = %{ a: 1, b: 2}
+# a => 1, b => 2
+
+-[ a, b] = [ a: 1, b: 2]
+# a => 1, b => 2
+
+-{ a, b} = {{ :a, 1}, { :b, 2}}
+# a => 1, b => 2
+
+def add(-%{ a, b}), do: a + b
+```
+
+Unlike `<~`, the right side must structurally match — there is no loose
+conversion between maps, lists, and tuples and no optional-variable
+support. Use `<~` when those are needed.
+
+`-/1` falls through to `Kernel.-/1` for any argument shape that isn't a
+structure literal.
+
+#### Head | tail in `+/1` and `-/1`
+
+Bare-variable heads are expanded as shorthand pairs while the tail is
+left untouched:
+
+```elixir
+-[ x | opts] = [ x: 1, y: 2]
+# x => 1, opts => [ y: 2]
+
+-[ a, b | rest] = [ a: 1, b: 2, c: 3, d: 4]
+# a => 1, b => 2, rest => [ c: 3, d: 4]
+
+x = 1
+opts = [ y: 2, z: 3]
++[ x | opts]           # => [ x: 1, y: 2, z: 3]
+```
+
+Note: Elixir's parser rejects keyword shorthand before `|`, so an
+explicit pair head must be written in tuple form:
+
+```elixir
+-[{ :x, 1} | opts] = [ x: 1, y: 2]
+# opts => [ y: 2]
+```
+
+This is a parser limitation, not a library one.
 
 ## Limitations
 
